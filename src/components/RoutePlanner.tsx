@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CampusBuilding, AccessibleRouteOption, Coordinates } from '../types';
+import { CampusBuilding, AccessibleRouteOption, Coordinates, AccessibilityReport } from '../types';
 import {
   SFSU_ACCESSIBLE_CORRIDORS,
   AccessibleCorridorItem,
   CampusCorridorWaypoint,
+  SFSU_FALLBACK_STARTING_POINT,
 } from '../data/sfsuCampusData';
 import {
   FaWheelchair,
@@ -30,11 +31,14 @@ import {
   FaBuilding,
   FaShieldHalved,
   FaPhone,
+  FaExpand,
 } from 'react-icons/fa6';
 import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl } from '../utils/googleDirections';
+import { UnifiedRouteModal } from './UnifiedRouteModal';
 
 interface RoutePlannerProps {
   buildings: CampusBuilding[];
+  reports?: AccessibilityReport[];
   originBuilding: CampusBuilding | null;
   destBuilding: CampusBuilding | null;
   setOriginBuilding: (b: CampusBuilding | null) => void;
@@ -59,7 +63,27 @@ interface OriginPreset {
   icon: string;
 }
 
+// Default fallback when GPS is not acquired: Student Life Events Center / Annex I
+const DEFAULT_FALLBACK_ORIGIN: OriginPreset = {
+  id: 'origin-annex',
+  name: 'Student Life Events Center / Annex I',
+  shortName: 'Student Life Events Center / Annex I',
+  address: '100 North State Drive',
+  coordinates: { lat: 37.7260, lng: -122.4826 },
+  buildingId: 'annex1',
+  icon: '🏛️',
+};
+
 const ORIGIN_PRESETS: OriginPreset[] = [
+  {
+    id: 'origin-current',
+    name: 'Current Location',
+    shortName: 'Current Location',
+    address: 'Live Campus GPS (or Annex I if unacquired)',
+    coordinates: { lat: 37.7260, lng: -122.4826 },
+    icon: '📍',
+  },
+  DEFAULT_FALLBACK_ORIGIN,
   {
     id: 'origin-muni',
     name: '19th & Holloway Transit Plaza (M-Line & Shuttle)',
@@ -87,26 +111,11 @@ const ORIGIN_PRESETS: OriginPreset[] = [
     buildingId: 'ccsc',
     icon: '🏢',
   },
-  {
-    id: 'origin-shc',
-    name: 'Gator Health Center & Dorms',
-    shortName: 'Health Center & Font Blvd',
-    address: '730 Font Blvd',
-    coordinates: { lat: 37.7208, lng: -122.4805 },
-    icon: '🏥',
-  },
-  {
-    id: 'origin-gps',
-    name: 'My Live GPS Location',
-    shortName: 'Live Campus GPS',
-    address: 'Current SFSU Geolocation',
-    coordinates: { lat: 37.7234, lng: -122.475 },
-    icon: '📍',
-  },
 ];
 
 export function RoutePlanner({
   buildings,
+  reports = [],
   originBuilding,
   destBuilding,
   setOriginBuilding,
@@ -123,8 +132,11 @@ export function RoutePlanner({
   const [viewMode, setViewMode] = useState<'carousel' | 'corridor_active'>('carousel');
   const [selectedCorridor, setSelectedCorridor] = useState<AccessibleCorridorItem | null>(null);
 
-  // Active Origin Preset
-  const [selectedOrigin, setSelectedOrigin] = useState<OriginPreset>(ORIGIN_PRESETS[0]);
+  // Single Unified Modal state (displays map and route in one single modal)
+  const [isUnifiedModalOpen, setIsUnifiedModalOpen] = useState(false);
+
+  // Active Origin Preset: starts as Student Life Events Center / Annex I until live GPS is acquired
+  const [selectedOrigin, setSelectedOrigin] = useState<OriginPreset>(DEFAULT_FALLBACK_ORIGIN);
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [isLocating, setIsLocating] = useState(false);
 
@@ -142,7 +154,7 @@ export function RoutePlanner({
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [showFaqGuide, setShowFaqGuide] = useState(false);
 
-  // Request Live GPS
+  // Request Live GPS: If successful, use current location; if cannot acquire, fallback to Student Life Events Center / Annex I
   const handleRequestGps = () => {
     setIsLocating(true);
     if ('geolocation' in navigator) {
@@ -150,30 +162,38 @@ export function RoutePlanner({
         (pos) => {
           const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setUserLocation(coords);
-          const gpsPreset: OriginPreset = {
-            id: 'origin-gps',
-            name: 'Live GPS Location',
-            shortName: 'Live GPS Location',
-            address: `GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
+          const currentPreset: OriginPreset = {
+            id: 'origin-current',
+            name: 'Current Location',
+            shortName: 'Current Location',
+            address: `Live GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
             coordinates: coords,
             icon: '📍',
           };
-          setSelectedOrigin(gpsPreset);
-          setOriginBuilding(null);
+          setSelectedOrigin(currentPreset);
           setIsLocating(false);
         },
-        () => {
-          const fallback = { lat: 37.7234, lng: -122.475 };
-          setUserLocation(fallback);
-          setSelectedOrigin(ORIGIN_PRESETS[0]);
+        (err) => {
+          console.warn('Geolocation could not be acquired, defaulting to Student Life Events Center / Annex I:', err);
+          setSelectedOrigin(DEFAULT_FALLBACK_ORIGIN);
+          const annexBldg = buildings.find((b) => b.id === 'annex1') || null;
+          setOriginBuilding(annexBldg);
           setIsLocating(false);
         },
         { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {
+      setSelectedOrigin(DEFAULT_FALLBACK_ORIGIN);
+      const annexBldg = buildings.find((b) => b.id === 'annex1') || null;
+      setOriginBuilding(annexBldg);
       setIsLocating(false);
     }
   };
+
+  // On mount: attempt to acquire current location; fallback to Student Life Events Center / Annex I if unable
+  useEffect(() => {
+    handleRequestGps();
+  }, []);
 
   // Sync when destBuilding is selected externally (e.g. from map or voice)
   useEffect(() => {
@@ -230,6 +250,7 @@ export function RoutePlanner({
   // Select Corridor and Move to Turn-by-Turn Waypoint View
   const handleSelectCorridor = async (
     corridor: AccessibleCorridorItem,
+    openModal = false,
     smoothScroll = true
   ) => {
     setSelectedCorridor(corridor);
@@ -300,6 +321,10 @@ export function RoutePlanner({
       setActiveRoute(routeOption);
       if (onSelectWaypoint) {
         onSelectWaypoint(0);
+      }
+
+      if (openModal) {
+        setIsUnifiedModalOpen(true);
       }
 
       if (smoothScroll) {
@@ -532,7 +557,7 @@ export function RoutePlanner({
               return (
                 <div
                   key={corridor.id}
-                  onClick={() => handleSelectCorridor(corridor)}
+                  onClick={() => handleSelectCorridor(corridor, false, true)}
                   className="w-[280px] sm:w-[320px] shrink-0 snap-start bg-gradient-to-b from-white to-slate-50/80 rounded-2xl border-2 border-slate-200 hover:border-purple-500 hover:shadow-xl p-4 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-1 cursor-pointer group"
                 >
                   {/* Top Badges */}
@@ -581,14 +606,34 @@ export function RoutePlanner({
                     </span>
                   </div>
 
-                  {/* Call to Action Button */}
-                  <button
-                    type="button"
-                    className="w-full py-2.5 px-3 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm group-hover:bg-purple-700 transition-colors cursor-pointer"
-                  >
-                    <span>View Corridor & Waypoints</span>
-                    <FaArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                  </button>
+                  {/* Call to Action Buttons */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectCorridor(corridor, false, true);
+                      }}
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                      title="Move to corridor with turn-by-turn waypoints and scroll to Google Map below"
+                    >
+                      <span>View Route & Map</span>
+                      <FaArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectCorridor(corridor, true, false);
+                      }}
+                      className="py-2.5 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1 border border-purple-200 transition-colors cursor-pointer shrink-0"
+                      title="View map and turn-by-turn route together in one single modal"
+                    >
+                      <FaExpand className="w-3 h-3 text-purple-700" />
+                      <span>Single Modal</span>
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -672,6 +717,15 @@ export function RoutePlanner({
                 <FaCar className="w-3.5 h-3.5" />
                 <span>Gator Cart</span>
               </button>
+
+              <button
+                onClick={() => setIsUnifiedModalOpen(true)}
+                className="px-3.5 py-2 bg-gradient-to-r from-purple-800 to-indigo-900 hover:from-purple-700 hover:to-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 cursor-pointer border border-purple-400/40"
+                title="View map and turn-by-turn route together in one single modal"
+              >
+                <FaExpand className="w-3.5 h-3.5 text-amber-300" />
+                <span>Single Modal View</span>
+              </button>
             </div>
           </div>
 
@@ -682,6 +736,21 @@ export function RoutePlanner({
               <div>{activeRoute.warningNotice}</div>
             </div>
           )}
+
+          {/* Prompt banner to view in single modal */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200 text-xs">
+            <span className="text-purple-950 font-semibold flex items-center gap-1.5">
+              <FaExpand className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+              <span>Inspect turn-by-turn corridor and interactive Google Map together in a side-by-side single modal</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsUnifiedModalOpen(true)}
+              className="px-3 py-1.5 bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs rounded-lg shadow-sm transition-transform active:scale-95 cursor-pointer shrink-0"
+            >
+              Open Single Modal
+            </button>
+          </div>
 
           {/* Corridor Waypoints Carousel Header */}
           <div className="flex items-center justify-between pt-1">
@@ -806,6 +875,26 @@ export function RoutePlanner({
           </div>
         </div>
       )}
+
+      {/* Unified Route & Map Single Modal */}
+      <UnifiedRouteModal
+        isOpen={isUnifiedModalOpen}
+        onClose={() => setIsUnifiedModalOpen(false)}
+        activeRoute={activeRoute}
+        selectedCorridorTitle={selectedCorridor?.title}
+        originName={selectedOrigin.shortName}
+        originAddress={selectedOrigin.address}
+        destinationName={selectedCorridor?.destinationName || destBuilding?.name || 'SFSU Campus Destination'}
+        destinationAddress={selectedCorridor?.destinationAddress || destBuilding?.address || 'SFSU Campus'}
+        selectedWaypointIndex={selectedWaypointIndex ?? 0}
+        onSelectWaypoint={(idx) => onSelectWaypoint && onSelectWaypoint(idx)}
+        buildings={buildings}
+        reports={reports}
+        onRequestRide={onRequestRide}
+        onOpenHotline={onOpenHotline}
+        originBuilding={originBuilding}
+        destBuilding={destBuilding}
+      />
     </div>
   );
 }

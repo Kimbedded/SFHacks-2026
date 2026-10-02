@@ -340,6 +340,7 @@ export default function App() {
               {/* 1. Low-Barrier Pathfinder & Carousel (Upper Side of Maps) */}
               <RoutePlanner
                 buildings={buildings}
+                reports={reports}
                 originBuilding={originBuilding}
                 destBuilding={destBuilding}
                 setOriginBuilding={setOriginBuilding}
@@ -375,6 +376,8 @@ export default function App() {
                   onSelectWaypoint={setSelectedWaypointIndex}
                   onSelectBuildingForRoute={handleSelectBuildingForRoute}
                   onReportAtLocation={handleReportAtLocation}
+                  originBuilding={originBuilding}
+                  destBuilding={destBuilding}
                 />
               </div>
             </div>

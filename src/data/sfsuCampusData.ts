@@ -157,7 +157,33 @@ export const HOTLINES = [
   },
 ];
 
+export const SFSU_FALLBACK_STARTING_POINT = {
+  id: 'annex1',
+  name: 'Student Life Events Center / Annex I',
+  shortName: 'Student Life Events Center / Annex I',
+  code: 'SLEC',
+  address: '100 North State Drive',
+  coordinates: { lat: 37.7260, lng: -122.4826 },
+};
+
 export const SFSU_BUILDINGS: CampusBuilding[] = [
+  {
+    id: 'annex1',
+    name: 'Student Life Events Center / Annex I',
+    code: 'SLEC',
+    address: '100 North State Drive',
+    coordinates: { lat: 37.7260, lng: -122.4826 },
+    accessibleEntrances: [
+      {
+        description: 'North State Drive main entrance with automatic power doors and level zero-threshold',
+        coordinates: { lat: 37.7261, lng: -122.4825 },
+        hasPowerDoor: true,
+      },
+    ],
+    elevators: [],
+    amenities: ['Student Life Event Arena', 'All-Gender ADA Restroom', 'Accessible Check-in Desks', 'Quiet Lounge Area'],
+    notes: 'Primary campus multi-purpose event arena and hackathon venue. Completely zero-step ground level access.',
+  },
   {
     id: 'ccsc',
     name: 'Cesar Chavez Student Center',

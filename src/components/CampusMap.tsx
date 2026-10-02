@@ -1,8 +1,13 @@
 import React, { useState, useEffect, Component, ErrorInfo } from 'react';
-import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
+import { Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import { CampusBuilding, AccessibilityReport, Coordinates, AccessibleRouteOption } from '../types';
 import { PolylineOverlay } from './PolylineOverlay';
-import { SFSU_CENTER, SFSU_ACCESSIBLE_PARKING, AccessibleParkingLocation } from '../data/sfsuCampusData';
+import {
+  SFSU_CENTER,
+  SFSU_ACCESSIBLE_PARKING,
+  AccessibleParkingLocation,
+  SFSU_FALLBACK_STARTING_POINT,
+} from '../data/sfsuCampusData';
 import {
   isApiKeyConfigured,
   getLastGmpError,
@@ -23,6 +28,8 @@ import {
   FaCircleCheck,
   FaCircleXmark,
   FaCar,
+  FaExpand,
+  FaLocationDot,
 } from 'react-icons/fa6';
 
 interface CampusMapProps {
@@ -33,6 +40,29 @@ interface CampusMapProps {
   onSelectWaypoint?: (index: number) => void;
   onSelectBuildingForRoute: (building: CampusBuilding, asOrigin: boolean) => void;
   onReportAtLocation: (locationName: string, coords: Coordinates, buildingId?: string) => void;
+  originBuilding?: CampusBuilding | null;
+  destBuilding?: CampusBuilding | null;
+  isFocusMode?: boolean;
+  containerClassName?: string;
+  onOpenSingleModal?: () => void;
+  userLocation?: Coordinates | null;
+}
+
+// Controller to center the Google Map camera to the starting point when no active route is active
+function MapCenterController({
+  center,
+  hasActiveRoute,
+}: {
+  center: Coordinates;
+  hasActiveRoute: boolean;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    if (map && center && !hasActiveRoute) {
+      map.panTo(center);
+    }
+  }, [map, center.lat, center.lng, hasActiveRoute]);
+  return null;
 }
 
 // Convert SFSU GPS coordinates to percentage positions (0-100%) for the radar map
@@ -93,6 +123,12 @@ export function CampusMap({
   onSelectWaypoint,
   onSelectBuildingForRoute,
   onReportAtLocation,
+  originBuilding,
+  destBuilding,
+  isFocusMode = true,
+  containerClassName,
+  onOpenSingleModal,
+  userLocation,
 }: CampusMapProps) {
   const [selectedBuilding, setSelectedBuilding] = useState<CampusBuilding | null>(null);
   const [selectedReport, setSelectedReport] = useState<AccessibilityReport | null>(null);
@@ -101,6 +137,82 @@ export function CampusMap({
     index: number;
     step: any;
   } | null>(null);
+
+  // Live location state: starts with user's current GPS location, or falls back to Student Life Events Center / Annex I
+  const [liveLocation, setLiveLocation] = useState<Coordinates | null>(userLocation || null);
+  const [hasAcquiredLiveLocation, setHasAcquiredLiveLocation] = useState(Boolean(userLocation));
+
+  useEffect(() => {
+    if (userLocation) {
+      setLiveLocation(userLocation);
+      setHasAcquiredLiveLocation(true);
+      return;
+    }
+
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setLiveLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setHasAcquiredLiveLocation(true);
+        },
+        (err) => {
+          console.warn('Geolocation could not be acquired, defaulting to Student Life Events Center / Annex I:', err);
+          setLiveLocation(SFSU_FALLBACK_STARTING_POINT.coordinates);
+          setHasAcquiredLiveLocation(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    } else {
+      setLiveLocation(SFSU_FALLBACK_STARTING_POINT.coordinates);
+      setHasAcquiredLiveLocation(false);
+    }
+  }, [userLocation]);
+
+  const effectiveStartingPoint: Coordinates =
+    originBuilding?.coordinates || liveLocation || SFSU_FALLBACK_STARTING_POINT.coordinates;
+
+  // Focus mode state: minimizes non-relevant landmarks when waypoints are active
+  const [focusRouteOnly, setFocusRouteOnly] = useState(isFocusMode);
+
+  useEffect(() => {
+    setFocusRouteOnly(isFocusMode);
+  }, [isFocusMode]);
+
+  const hasActiveWaypoints = Boolean(activeRoute && activeRoute.steps && activeRoute.steps.length > 0);
+
+  // Proximity check for barriers/hazards when focusRouteOnly is active
+  const isNearbyRoute = (coords: Coordinates): boolean => {
+    if (!activeRoute?.steps || activeRoute.steps.length === 0) return true;
+    return activeRoute.steps.some((step) => {
+      const dist = Math.hypot(coords.lat - step.coordinates.lat, coords.lng - step.coordinates.lng);
+      return dist < 0.0012; // ~120m
+    });
+  };
+
+  // Helper to determine if a campus building is relevant to the active corridor route
+  const isRelevantBuilding = (building: CampusBuilding): boolean => {
+    if (!hasActiveWaypoints || !focusRouteOnly) return true;
+
+    if (destBuilding && (building.id === destBuilding.id || building.code.toLowerCase() === destBuilding.code.toLowerCase())) {
+      return true;
+    }
+    if (originBuilding && (building.id === originBuilding.id || building.code.toLowerCase() === originBuilding.code.toLowerCase())) {
+      return true;
+    }
+    if (activeRoute?.title.toLowerCase().includes(building.name.toLowerCase()) || activeRoute?.title.toLowerCase().includes(building.code.toLowerCase())) {
+      return true;
+    }
+
+    if (activeRoute?.steps && activeRoute.steps.length > 0) {
+      const startCoord = activeRoute.steps[0].coordinates;
+      const endCoord = activeRoute.steps[activeRoute.steps.length - 1].coordinates;
+      const dStart = Math.hypot(building.coordinates.lat - startCoord.lat, building.coordinates.lng - startCoord.lng);
+      const dEnd = Math.hypot(building.coordinates.lat - endCoord.lat, building.coordinates.lng - endCoord.lng);
+      if (dStart < 0.0009 || dEnd < 0.0009) return true;
+    }
+
+    return false;
+  };
 
   // Layer Toggles
   const [showElevators, setShowElevators] = useState(true);
@@ -182,12 +294,33 @@ export function CampusMap({
         const pos = gpsToPercent(bldg.coordinates);
         const hasBrokenElevator = bldg.elevators.some((e) => e.status === 'down');
         const isSelected = selectedBuilding?.id === bldg.id;
+        const isRelevant = isRelevantBuilding(bldg);
+
+        // When waypoints are showing and landmark is not relevant, minimize it to a subtle dot
+        if (hasActiveWaypoints && focusRouteOnly && !isRelevant) {
+          return (
+            <div
+              key={bldg.id}
+              style={{ left: pos.left, top: pos.top }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-5 opacity-25 hover:opacity-100 transition-opacity"
+            >
+              <button
+                type="button"
+                onClick={() => setSelectedBuilding(bldg)}
+                className="w-2 h-2 rounded-full bg-slate-400 hover:bg-purple-400 transition-all cursor-pointer"
+                title={`${bldg.name} (Minimized landmark)`}
+              />
+            </div>
+          );
+        }
 
         return (
           <div
             key={bldg.id}
             style={{ left: pos.left, top: pos.top }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-10 transition-transform duration-200"
+            className={`absolute -translate-x-1/2 -translate-y-1/2 transition-transform duration-200 ${
+              isRelevant && hasActiveWaypoints ? 'z-30' : 'z-10'
+            }`}
           >
             {/* Building Marker Card */}
             <button
@@ -245,8 +378,22 @@ export function CampusMap({
         );
       })}
 
-      {/* Accessible Parking on Radar */}
+      {/* Starting Point Marker on Radar when idle */}
+      {(!activeRoute || !activeRoute.steps || activeRoute.steps.length === 0) && (
+        <div
+          style={gpsToPercent(effectiveStartingPoint)}
+          className="absolute -translate-x-1/2 -translate-y-1/2 z-40"
+        >
+          <div className="px-2.5 py-1 rounded-xl bg-purple-950 text-amber-300 font-black text-[10px] shadow-xl border-2 border-amber-400 flex items-center gap-1.5 whitespace-nowrap animate-pulse">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>{hasAcquiredLiveLocation ? '📍 Current Location' : '🏛️ Annex I (Start)'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Accessible Parking on Radar (Minimized/hidden when route waypoints active) */}
       {showParking &&
+        (!hasActiveWaypoints || !focusRouteOnly) &&
         SFSU_ACCESSIBLE_PARKING.map((pkg) => {
           const pos = gpsToPercent(pkg.coordinates);
           const isSelected = selectedParking?.id === pkg.id;
@@ -278,10 +425,11 @@ export function CampusMap({
           );
         })}
 
-      {/* Reported Campus Accessibility Barriers */}
+      {/* Reported Campus Accessibility Barriers (Filtered along active route when waypoints active) */}
       {showHazards &&
         reports
           .filter((r) => r.status !== 'resolved')
+          .filter((rep) => !hasActiveWaypoints || !focusRouteOnly || isNearbyRoute(rep.coordinates))
           .map((rep) => {
             const pos = gpsToPercent(rep.coordinates);
             const isSelected = selectedReport?.id === rep.id;
@@ -373,7 +521,12 @@ export function CampusMap({
   );
 
   return (
-    <div className="relative w-full h-[520px] lg:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900">
+    <div
+      className={
+        containerClassName ||
+        'relative w-full h-[520px] lg:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900'
+      }
+    >
       {/* Floating Active Route Bar with Google Maps Action */}
       {activeRoute && (
         <div className="absolute top-14 left-3 z-20 max-w-sm sm:max-w-md bg-slate-950/95 backdrop-blur-md text-white p-2.5 rounded-xl border border-blue-400/40 shadow-xl flex items-center justify-between gap-3 animate-fadeIn">
@@ -387,18 +540,32 @@ export function CampusMap({
             </div>
           </div>
 
-          {activeRoute.googleMapsUrl && (
-            <a
-              href={activeRoute.googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5 shrink-0"
-              title="Open full walking directions in Google Maps app"
-            >
-              <FaArrowUpRightFromSquare className="w-2.5 h-2.5" />
-              <span>Google Maps</span>
-            </a>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenSingleModal && (
+              <button
+                type="button"
+                onClick={onOpenSingleModal}
+                className="px-2.5 py-1.5 bg-gradient-to-r from-purple-800 to-indigo-900 hover:from-purple-700 hover:to-indigo-800 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer border border-purple-400/40"
+                title="View map and turn-by-turn route together in one single modal"
+              >
+                <FaExpand className="w-2.5 h-2.5 text-amber-300" />
+                <span>Single Modal</span>
+              </button>
+            )}
+
+            {activeRoute.googleMapsUrl && (
+              <a
+                href={activeRoute.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5 shrink-0"
+                title="Open full walking directions in Google Maps app"
+              >
+                <FaArrowUpRightFromSquare className="w-2.5 h-2.5" />
+                <span>Google Maps</span>
+              </a>
+            )}
+          </div>
         </div>
       )}
 
@@ -460,6 +627,22 @@ export function CampusMap({
             Barriers ({reports.filter((r) => r.status !== 'resolved').length})
           </span>
         </label>
+
+        {/* Route Focus Mode Toggle (Minimizes landmarks other than relevant ones) */}
+        {hasActiveWaypoints && (
+          <button
+            type="button"
+            onClick={() => setFocusRouteOnly((prev) => !prev)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
+              focusRouteOnly
+                ? 'bg-purple-900 text-amber-300 border-amber-400/60 shadow-sm'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+            }`}
+            title="Toggle landmark minimization along the active corridor"
+          >
+            <span>{focusRouteOnly ? '🎯 Route Focus: Active' : '👁️ Show All Landmarks'}</span>
+          </button>
+        )}
       </div>
 
       {/* Map Mode Indicator */}
@@ -518,7 +701,7 @@ export function CampusMap({
           <Map
             id="campus-map"
             mapId="DEMO_MAP_ID"
-            defaultCenter={SFSU_CENTER}
+            defaultCenter={SFSU_FALLBACK_STARTING_POINT.coordinates}
             defaultZoom={17}
             gestureHandling="greedy"
             internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
@@ -527,9 +710,55 @@ export function CampusMap({
             mapTypeControl={false}
             fullscreenControl={true}
           >
+            {/* Map Camera Controller to center starting point when idle */}
+            <MapCenterController
+              center={effectiveStartingPoint}
+              hasActiveRoute={Boolean(activeRoute && activeRoute.steps && activeRoute.steps.length > 0)}
+            />
+
+            {/* Live Starting Point Marker (Current Location or Student Life Events Center / Annex I) */}
+            {(!activeRoute || !activeRoute.steps || activeRoute.steps.length === 0) && (
+              <AdvancedMarker
+                position={effectiveStartingPoint}
+                title={hasAcquiredLiveLocation ? "Your Current Starting Location" : "Starting Point: Student Life Events Center / Annex I"}
+                zIndex={55}
+              >
+                <div className="cursor-pointer flex flex-col items-center">
+                  <div className="px-2.5 py-1 rounded-xl bg-purple-950 text-amber-300 border-2 border-amber-400 font-extrabold text-[11px] shadow-xl flex items-center gap-1.5 whitespace-nowrap animate-pulse">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>{hasAcquiredLiveLocation ? '📍 Current Location (Start)' : '🏛️ Annex I (Start Point)'}</span>
+                  </div>
+                  <div className="w-2.5 h-2.5 bg-purple-950 rotate-45 -mt-1 border-r border-b border-amber-400"></div>
+                </div>
+              </AdvancedMarker>
+            )}
+
             {/* Render Campus Buildings & Elevators */}
             {buildings.map((building) => {
               const hasBrokenElevator = building.elevators.some((e) => e.status === 'down');
+              const isRelevant = isRelevantBuilding(building);
+
+              // When waypoints are showing and landmark is not relevant, minimize it to a subtle dot
+              if (hasActiveWaypoints && focusRouteOnly && !isRelevant) {
+                return (
+                  <AdvancedMarker
+                    key={building.id}
+                    position={building.coordinates}
+                    title={`${building.name} (Non-route landmark - tap to inspect)`}
+                    zIndex={5}
+                    onClick={() => {
+                      setSelectedBuilding(building);
+                      setSelectedReport(null);
+                      setSelectedParking(null);
+                    }}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 rounded-full bg-slate-400/40 hover:bg-purple-500 hover:scale-150 border border-slate-300/50 shadow-xs transition-all cursor-pointer"
+                      title={building.name}
+                    />
+                  </AdvancedMarker>
+                );
+              }
 
               return (
                 <React.Fragment key={building.id}>
@@ -537,6 +766,7 @@ export function CampusMap({
                   <AdvancedMarker
                     position={building.coordinates}
                     title={building.name}
+                    zIndex={isRelevant && hasActiveWaypoints ? 45 : 15}
                     onClick={() => {
                       setSelectedBuilding(building);
                       setSelectedReport(null);
@@ -545,7 +775,9 @@ export function CampusMap({
                   >
                     <div
                       className={`cursor-pointer px-2.5 py-1 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-1.5 transition-all hover:scale-110 ${
-                        hasBrokenElevator
+                        isRelevant && hasActiveWaypoints
+                          ? 'bg-purple-950 text-amber-300 border-amber-400 ring-2 ring-amber-400/50 scale-105'
+                          : hasBrokenElevator
                           ? 'bg-rose-600 text-white border-rose-400'
                           : 'bg-purple-900 text-white border-purple-400'
                       }`}
@@ -558,8 +790,9 @@ export function CampusMap({
                     </div>
                   </AdvancedMarker>
 
-                  {/* Accessible Entrances with Power Doors */}
+                  {/* Accessible Entrances with Power Doors (Shown for relevant buildings) */}
                   {showEntrances &&
+                    (!hasActiveWaypoints || !focusRouteOnly || isRelevant) &&
                     building.accessibleEntrances.map((entrance, idx) => (
                       <AdvancedMarker
                         key={`${building.id}-entrance-${idx}`}
@@ -586,8 +819,9 @@ export function CampusMap({
               );
             })}
 
-            {/* Accessible Parking Locations on Google Maps */}
+            {/* Accessible Parking Locations on Google Maps (Hidden when focusing on route corridor) */}
             {showParking &&
+              (!hasActiveWaypoints || !focusRouteOnly) &&
               SFSU_ACCESSIBLE_PARKING.map((pkg) => (
                 <AdvancedMarker
                   key={pkg.id}
@@ -606,10 +840,11 @@ export function CampusMap({
                 </AdvancedMarker>
               ))}
 
-            {/* Active Barriers & Hazards */}
+            {/* Active Barriers & Hazards (Filtered along route corridor when waypoints active) */}
             {showHazards &&
               reports
                 .filter((r) => r.status !== 'resolved')
+                .filter((rep) => !hasActiveWaypoints || !focusRouteOnly || isNearbyRoute(rep.coordinates))
                 .map((rep) => (
                   <AdvancedMarker
                     key={rep.id}
