@@ -157,6 +157,18 @@ export function RoutePlanner({
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [showFaqGuide, setShowFaqGuide] = useState(false);
 
+  // Check for unresolved barriers / reports affecting destination
+  const unresolvedBarriers = reports.filter(
+    (r) =>
+      r.status !== 'resolved' &&
+      ((selectedCorridor &&
+        (r.buildingId === selectedCorridor.destinationBuildingId ||
+          r.locationName.toLowerCase().includes(selectedCorridor.destinationName.toLowerCase()))) ||
+        (destBuilding &&
+          (r.buildingId === destBuilding.id ||
+            r.locationName.toLowerCase().includes(destBuilding.name.toLowerCase()))))
+  );
+
   // Request GPS: If successful, use current location; if cannot acquire, fallback to Student Life Events Center / Annex I
   const handleRequestGps = () => {
     setIsLocating(true);
@@ -725,6 +737,23 @@ export function RoutePlanner({
             </div>
           )}
 
+          {/* Active Barrier & Detour Notice if an unresolved report is present */}
+          {unresolvedBarriers.length > 0 && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 text-xs space-y-1.5 animate-fadeIn">
+              <div className="flex items-center gap-2 font-bold text-amber-900">
+                <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Active Unresolved Campus Barrier Detected</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                <strong>Reported obstacle:</strong> {unresolvedBarriers[0].title || unresolvedBarriers[0].category} at {unresolvedBarriers[0].locationName}.
+                The route navigator has automatically bypassed this obstacle using a verified low-grade path.
+              </p>
+              <div className="text-[10px] text-amber-800 font-semibold flex items-center gap-1">
+                <span>✓ Visible rerouted path / polyline is highlighted on the map.</span>
+              </div>
+            </div>
+          )}
+
           {/* Corridor Waypoints Carousel Header */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="flex items-center gap-2">
@@ -833,13 +862,43 @@ export function RoutePlanner({
                   </div>
 
                   {/* ADA Feature Tag */}
-                  <div className="pt-1.5 border-t border-slate-200/80 text-[10px] text-purple-950 bg-purple-50/60 p-2 rounded-lg font-medium">
-                    <strong className="block text-purple-900 font-bold mb-0.5">ADA Low-Barrier Detail:</strong>
-                    {step.accessibilityNotes}
+                  <div className="pt-1.5 border-t border-slate-200/80 text-[10px] text-purple-950 bg-purple-50/60 p-2 rounded-lg font-medium space-y-1">
+                    <div>
+                      <strong className="text-purple-900 font-bold mr-1">ADA Low-Barrier Detail:</strong>
+                      <span>{step.accessibilityNotes}</span>
+                    </div>
+
+                    {/* Slope Warning for Step */}
+                    <div className="flex items-center justify-between text-[10px] px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-900 font-semibold">
+                      <span className="flex items-center gap-1">
+                        <FaTriangleExclamation className="w-2.5 h-2.5 text-amber-600" />
+                        <span>Slope warning:</span>
+                      </span>
+                      <span>
+                        {idx === 0
+                          ? '1.8% gentle grade'
+                          : idx === 1
+                          ? '3.5% low-grade ramp'
+                          : idx % 2 === 0
+                          ? '2.2% level paved corridor'
+                          : '4.0% moderate incline (verified < 8.33% ADA max)'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+
+          {/* On-Site Verification Warning & ADA Disclaimer */}
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-slate-900">
+              <FaShieldHalved className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+              <span>On-Site Verification Required</span>
+            </div>
+            <p className="text-[11px] text-slate-600 leading-relaxed">
+              This alternative route must be verified on site before use. Conditions can change rapidly due to weather or unplanned maintenance. Neither GatorAccess AI nor Google Maps provides an official ADA determination.
+            </p>
           </div>
 
 

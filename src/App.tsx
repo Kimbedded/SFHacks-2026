@@ -435,6 +435,7 @@ export default function App() {
                 buildings={buildings}
                 onReportSubmitted={handleReportSubmitted}
                 onRequestRide={() => setActiveTab('support')}
+                onNavigateToMap={() => setActiveTab('map')}
                 prefillLocation={prefillLocation}
               />
             </div>

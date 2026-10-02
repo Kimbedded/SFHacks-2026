@@ -20,7 +20,7 @@ import {
   RotateCcw,
   Radio
 } from 'lucide-react';
-import { VoiceAssistResponse } from '../../server/geminiService';
+import { VoiceAssistResponse } from '../types';
 
 interface GeminiVoiceWidgetProps {
   onNavigate: (
