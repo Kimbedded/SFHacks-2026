@@ -1,24 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CampusBuilding } from '../types';
 import {
-  Camera,
-  RotateCcw,
-  Check,
-  Sparkles,
-  AlertTriangle,
-  CheckCircle2,
-  FileText,
-  MapPin,
-  Phone,
-  ExternalLink,
-  Building,
-  AlertCircle,
-  X,
-  ArrowRight,
-  ShieldCheck,
-  Layers,
-  HelpCircle,
-} from 'lucide-react';
+  FaCamera,
+  FaRotateLeft,
+  FaCheck,
+  FaWandMagicSparkles,
+  FaTriangleExclamation,
+  FaCircleCheck,
+  FaFileLines,
+  FaLocationDot,
+  FaPhone,
+  FaArrowUpRightFromSquare,
+  FaBuilding,
+  FaCircleExclamation,
+  FaXmark,
+  FaArrowRight,
+  FaShieldHalved,
+  FaLayerGroup,
+  FaCircleQuestion,
+  FaWheelchair,
+  FaSquareParking,
+  FaElevator,
+} from 'react-icons/fa6';
 import confetti from 'canvas-confetti';
 
 interface SubmitReportViewProps {
@@ -549,7 +552,7 @@ export function SubmitReportView({
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-12 text-center space-y-6 animate-fadeIn">
           {cameraError && (
             <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 text-left flex items-start gap-2.5">
-              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <FaCircleExclamation className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
               <div>
                 <strong className="block mb-0.5 font-bold">Camera Permission Notice:</strong>
                 {cameraError}
@@ -559,7 +562,7 @@ export function SubmitReportView({
 
           <div className="max-w-md mx-auto space-y-3">
             <div className="w-20 h-20 rounded-3xl bg-purple-100 text-purple-800 flex items-center justify-center mx-auto shadow-inner">
-              <Camera className="w-10 h-10" />
+              <FaCamera className="w-10 h-10" />
             </div>
 
             <div className="space-y-1">
@@ -580,7 +583,7 @@ export function SubmitReportView({
               className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-extrabold text-base rounded-2xl shadow-xl transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer border border-purple-400/30"
               aria-label="Open camera"
             >
-              <Camera className="w-5 h-5 text-amber-300" />
+              <FaCamera className="w-5 h-5 text-amber-300" />
               <span>Open Camera</span>
             </button>
 
@@ -591,7 +594,7 @@ export function SubmitReportView({
               className="px-4 py-2 text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors cursor-pointer border border-purple-200 flex items-center gap-1.5"
               title="Test the complete flow without camera hardware"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+              <FaWandMagicSparkles className="w-3.5 h-3.5 text-amber-600" />
               <span>Use Demo Hazard Photo</span>
             </button>
           </div>
@@ -648,7 +651,7 @@ export function SubmitReportView({
               className="px-8 py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-sm rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 border-2 border-white cursor-pointer"
               aria-label="Take picture"
             >
-              <Camera className="w-5 h-5 text-purple-950" />
+              <FaCamera className="w-5 h-5 text-purple-950" />
               <span>Take Picture</span>
             </button>
           </div>
@@ -682,7 +685,7 @@ export function SubmitReportView({
               onClick={handleRetakePicture}
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <FaRotateLeft className="w-3.5 h-3.5" />
               <span>Retake Picture</span>
             </button>
 
@@ -691,7 +694,7 @@ export function SubmitReportView({
               onClick={handleUseThisPicture}
               className="w-full sm:w-auto px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Check className="w-4 h-4" />
+              <FaCheck className="w-4 h-4" />
               <span>Use This Picture</span>
             </button>
           </div>
@@ -732,7 +735,7 @@ export function SubmitReportView({
               <div className="space-y-1 relative">
                 <label className="text-xs font-bold text-slate-700">SFSU Campus Location</label>
                 <div className="relative">
-                  <MapPin className="w-4 h-4 text-purple-700 absolute left-3 top-3" />
+                  <FaLocationDot className="w-4 h-4 text-purple-700 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={locationQuery}
@@ -774,7 +777,7 @@ export function SubmitReportView({
               {analysisError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-2 animate-fadeIn">
                   <div className="flex items-center gap-1.5 font-bold text-rose-800">
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <FaCircleExclamation className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>Analysis Error</span>
                   </div>
                   <p className="text-[11px] text-rose-900 leading-relaxed">{analysisError}</p>
@@ -784,7 +787,7 @@ export function SubmitReportView({
                       onClick={handleAnalyzeWithGemini}
                       className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-sm"
                     >
-                      <RotateCcw className="w-3 h-3" />
+                      <FaRotateLeft className="w-3 h-3" />
                       <span>Retry Analysis with Gemini</span>
                     </button>
                     <button
@@ -804,9 +807,9 @@ export function SubmitReportView({
                 onClick={handleAnalyzeWithGemini}
                 className="w-full py-3.5 px-6 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-extrabold text-sm rounded-xl shadow-xl transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
               >
-                <Sparkles className="w-4 h-4 text-amber-300" />
+                <FaWandMagicSparkles className="w-4 h-4 text-amber-300" />
                 <span>Analyze with Gemini</span>
-                <ArrowRight className="w-4 h-4" />
+                <FaArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -819,7 +822,7 @@ export function SubmitReportView({
           <div className="relative w-16 h-16 mx-auto">
             <div className="absolute inset-0 rounded-full border-4 border-purple-200 border-t-purple-700 animate-spin"></div>
             <div className="absolute inset-2 rounded-full bg-purple-50 flex items-center justify-center text-purple-700">
-              <Sparkles className="w-6 h-6 animate-pulse text-amber-500" />
+              <FaWandMagicSparkles className="w-6 h-6 animate-pulse text-amber-500" />
             </div>
           </div>
 
@@ -883,7 +886,7 @@ export function SubmitReportView({
                     This photo will be attached to the official SFSU Facilities Services work order report upon submission.
                   </p>
                   <div className="flex items-center gap-1.5 text-[11px] text-purple-900 font-semibold pt-1">
-                    <MapPin className="w-3.5 h-3.5 text-purple-700" />
+                    <FaLocationDot className="w-3.5 h-3.5 text-purple-700" />
                     <span>Location: {locationName}</span>
                   </div>
                 </div>
@@ -924,7 +927,7 @@ export function SubmitReportView({
 
             {/* Disclaimer Warning */}
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="italic font-medium">
                 Gemini’s analysis is only an aid and not an official accessibility determination. Please verify the result before reporting.
               </p>
@@ -935,7 +938,7 @@ export function SubmitReportView({
           {suggestedSign && (
             <div className="p-3.5 bg-purple-50 rounded-2xl border border-purple-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-fadeIn">
               <div className="flex items-center gap-2 text-purple-950 font-medium">
-                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                <FaWandMagicSparkles className="w-4 h-4 text-amber-500 shrink-0" />
                 <span>
                   Gemini noticed campus building sign in photo: <strong className="font-bold">"{suggestedSign}"</strong>
                 </span>
@@ -1062,7 +1065,7 @@ export function SubmitReportView({
               onClick={handleRetakePicture}
               className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <FaRotateLeft className="w-3.5 h-3.5" />
               <span>Retake Photo</span>
             </button>
 
@@ -1079,7 +1082,7 @@ export function SubmitReportView({
                 </>
               ) : (
                 <>
-                  <FileText className="w-4 h-4 text-amber-300" />
+                  <FaFileLines className="w-4 h-4 text-amber-300" />
                   <span>Confirm & Submit Accessibility Report</span>
                 </>
               )}
@@ -1092,7 +1095,7 @@ export function SubmitReportView({
       {step === 'confirmation' && submittedReport && (
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 space-y-6 text-center animate-fadeIn">
           <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
-            <CheckCircle2 className="w-10 h-10" />
+            <FaCircleCheck className="w-10 h-10" />
           </div>
 
           <div className="space-y-1.5 max-w-md mx-auto">
@@ -1152,7 +1155,7 @@ export function SubmitReportView({
               href="tel:4153382472"
               className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
             >
-              <Phone className="w-3.5 h-3.5" />
+              <FaPhone className="w-3.5 h-3.5" />
               <span>Accessibility Services: (415) 338-2472</span>
             </a>
 
@@ -1163,7 +1166,7 @@ export function SubmitReportView({
               rel="noopener noreferrer"
               className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition-colors flex items-center justify-center gap-1.5"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <FaArrowUpRightFromSquare className="w-3.5 h-3.5" />
               <span>Accessibility & Construction Alerts</span>
             </a>
           </div>

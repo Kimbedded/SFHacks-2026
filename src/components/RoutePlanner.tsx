@@ -1,29 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CampusBuilding, AccessibleRouteOption, Coordinates } from '../types';
 import {
-  Navigation,
-  Compass,
-  ArrowRight,
-  ShieldAlert,
-  Sparkles,
-  Volume2,
-  Car,
-  MapPin,
-  Clock,
-  TrendingUp,
-  Search,
-  Crosshair,
-  ArrowUpDown,
-  CheckCircle,
-  HelpCircle,
-  Building,
-  Heart,
-  Train,
-  Laptop,
-  Flame,
-  X,
-  ExternalLink,
-} from 'lucide-react';
+  FaWheelchair,
+  FaSquareParking,
+  FaElevator,
+  FaRoute,
+  FaCompass,
+  FaCar,
+  FaHeart,
+  FaTrainSubway,
+  FaLaptopCode,
+  FaPersonSwimming,
+  FaVolumeHigh,
+  FaArrowRightArrowLeft,
+  FaMagnifyingGlass,
+  FaLocationCrosshairs,
+  FaLocationDot,
+  FaClock,
+  FaTriangleExclamation,
+  FaCircleQuestion,
+  FaArrowUpRightFromSquare,
+  FaXmark,
+  FaCheck,
+  FaArrowTrendUp,
+} from 'react-icons/fa6';
 import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl } from '../utils/googleDirections';
 
 interface RoutePlannerProps {
@@ -336,7 +336,7 @@ export function RoutePlanner({
               onClick={() => setShowFaqGuide(!showFaqGuide)}
               className="text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg border border-purple-200 transition-colors flex items-center gap-1"
             >
-              <HelpCircle className="w-3.5 h-3.5" />
+              <FaCircleQuestion className="w-3.5 h-3.5" />
               <span>What should I do? / FAQs</span>
             </button>
 
@@ -344,7 +344,7 @@ export function RoutePlanner({
               onClick={onRequestRide}
               className="text-xs font-bold text-amber-950 bg-amber-400 hover:bg-amber-300 px-2.5 py-1 rounded-lg shadow-sm transition-transform active:scale-95 flex items-center gap-1"
             >
-              <Car className="w-3.5 h-3.5" />
+              <FaCar className="w-3.5 h-3.5" />
               <span>Gator Cart</span>
             </button>
           </div>
@@ -358,7 +358,7 @@ export function RoutePlanner({
             className="p-2.5 rounded-xl border border-purple-200 bg-purple-50/50 hover:bg-purple-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
           >
             <div className="w-7 h-7 rounded-lg bg-purple-700 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
-              ♿
+              <FaWheelchair className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="text-xs font-bold text-purple-950 truncate">DPRC Office</div>
             <div className="text-[10px] text-purple-700 truncate">Cesar Chavez Rm 400</div>
@@ -370,7 +370,7 @@ export function RoutePlanner({
             className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
           >
             <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
-              <Heart className="w-3.5 h-3.5" />
+              <FaHeart className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="text-xs font-bold text-blue-950 truncate">CAPS Counseling</div>
             <div className="text-[10px] text-blue-700 truncate">SSB Suite 205</div>
@@ -382,7 +382,7 @@ export function RoutePlanner({
             className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
           >
             <div className="w-7 h-7 rounded-lg bg-indigo-700 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
-              <Laptop className="w-3.5 h-3.5" />
+              <FaLaptopCode className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="text-xs font-bold text-indigo-950 truncate">Assistive Tech Lab</div>
             <div className="text-[10px] text-indigo-700 truncate">Library 2nd Floor</div>
@@ -394,7 +394,7 @@ export function RoutePlanner({
             className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
           >
             <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
-              <Train className="w-3.5 h-3.5" />
+              <FaTrainSubway className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="text-xs font-bold text-emerald-950 truncate">Muni & BART Hub</div>
             <div className="text-[10px] text-emerald-700 truncate">19th & Holloway Ramp</div>
@@ -403,13 +403,13 @@ export function RoutePlanner({
           {/* Lot 20 ADA Parking */}
           <button
             onClick={() => handleFrequentServiceClick('lot_20', 'Lot 20')}
-            className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
+            className="p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
           >
-            <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
-              🅿️
+            <div className="w-7 h-7 rounded-lg bg-blue-700 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
+              <FaSquareParking className="w-3.5 h-3.5 text-white" />
             </div>
-            <div className="text-xs font-bold text-amber-950 truncate">Lot 20 ADA Garage</div>
-            <div className="text-[10px] text-amber-800 truncate">Covered Bridge Access</div>
+            <div className="text-xs font-bold text-blue-950 truncate">Lot 20 ADA Garage</div>
+            <div className="text-[10px] text-blue-800 truncate">Covered Bridge Access</div>
           </button>
 
           {/* Mashouf ADA Wellness */}
@@ -418,7 +418,7 @@ export function RoutePlanner({
             className="p-2.5 rounded-xl border border-teal-200 bg-teal-50/50 hover:bg-teal-100/70 text-left transition-all hover:scale-[1.02] active:scale-95 group shadow-2xs"
           >
             <div className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs mb-1.5 group-hover:scale-110 transition-transform">
-              🏊
+              <FaPersonSwimming className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="text-xs font-bold text-teal-950 truncate">Mashouf Wellness</div>
             <div className="text-[10px] text-teal-800 truncate">Zero-Entry & Lift</div>
@@ -430,11 +430,11 @@ export function RoutePlanner({
           <div className="p-4 bg-slate-50 border border-purple-200 rounded-xl space-y-3 text-xs text-slate-700 animate-fadeIn">
             <div className="flex items-center justify-between font-bold text-purple-950 text-sm">
               <span className="flex items-center gap-1.5">
-                <HelpCircle className="w-4 h-4 text-purple-700" />
+                <FaCircleQuestion className="w-4 h-4 text-purple-700" />
                 Frequently Asked Accessibility Scenarios:
               </span>
               <button onClick={() => setShowFaqGuide(false)} className="text-slate-400 hover:text-slate-700">
-                <X className="w-4 h-4" />
+                <FaXmark className="w-4 h-4" />
               </button>
             </div>
 
@@ -471,7 +471,7 @@ export function RoutePlanner({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold">
-              <Compass className="w-4 h-4" />
+              <FaCompass className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-black text-sm sm:text-base text-slate-900">
@@ -509,13 +509,13 @@ export function RoutePlanner({
               </span>
               {gpsActive && (
                 <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                  <Crosshair className="w-3 h-3" /> Live GPS Active
+                  <FaLocationCrosshairs className="w-3 h-3" /> Live GPS Active
                 </span>
               )}
             </label>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+              <FaMagnifyingGlass className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
               <input
                 type="text"
                 value={originText}
@@ -538,7 +538,7 @@ export function RoutePlanner({
                 className="absolute right-2 top-2 px-2 py-1 rounded-md text-[10px] font-bold bg-purple-100 hover:bg-purple-200 text-purple-900 transition-colors flex items-center gap-1"
                 title="Detect live GPS location"
               >
-                <Crosshair className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
+                <FaLocationCrosshairs className={`w-3 h-3 ${isLocating ? 'animate-spin' : ''}`} />
                 <span>GPS</span>
               </button>
             </div>
@@ -556,7 +556,7 @@ export function RoutePlanner({
                   }}
                   className="p-2.5 hover:bg-purple-50 cursor-pointer flex items-center space-x-2 text-purple-950 font-bold"
                 >
-                  <Crosshair className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <FaLocationCrosshairs className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <div>
                     <div>📍 Current Location (GPS)</div>
                     <div className="text-[10px] text-slate-500 font-normal">
@@ -599,7 +599,7 @@ export function RoutePlanner({
               className="p-2 rounded-xl border border-slate-200 hover:border-purple-400 bg-slate-50 hover:bg-purple-50 text-slate-600 hover:text-purple-900 transition-all hover:scale-110 active:scale-95 shadow-2xs"
               title="Swap Origin and Destination"
             >
-              <ArrowUpDown className="w-4 h-4" />
+              <FaArrowRightArrowLeft className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -618,7 +618,7 @@ export function RoutePlanner({
             </label>
 
             <div className="relative">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+              <FaMagnifyingGlass className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
               <input
                 type="text"
                 value={destText}
@@ -639,7 +639,7 @@ export function RoutePlanner({
                   }}
                   className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
                 >
-                  <X className="w-4 h-4" />
+                  <FaXmark className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -723,7 +723,7 @@ export function RoutePlanner({
               </>
             ) : (
               <>
-                <Navigation className="w-4 h-4" />
+                <FaRoute className="w-4 h-4" />
                 <span>Find Accessible Route</span>
               </>
             )}
@@ -737,7 +737,7 @@ export function RoutePlanner({
           {/* Warning Banner if rerouted */}
           {activeRoute.warningNotice && (
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold flex items-start gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <FaTriangleExclamation className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <div>{activeRoute.warningNotice}</div>
             </div>
           )}
@@ -758,7 +758,7 @@ export function RoutePlanner({
                   className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-sm transition-transform hover:scale-105 active:scale-95"
                   title="Open this route in Google Maps navigation"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <FaArrowUpRightFromSquare className="w-3 h-3" />
                   <span>Open in Google Maps</span>
                 </a>
               )}
@@ -772,7 +772,7 @@ export function RoutePlanner({
                 }`}
                 title="Read accessible route aloud for blind/low-vision students"
               >
-                <Volume2 className="w-3.5 h-3.5" />
+                <FaVolumeHigh className="w-3.5 h-3.5" />
                 <span>{isSpeaking ? 'Stop Reading' : 'Read Aloud'}</span>
               </button>
 
@@ -780,7 +780,7 @@ export function RoutePlanner({
                 onClick={onRequestRide}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-lg shadow-sm transition-transform active:scale-95"
               >
-                <Car className="w-3.5 h-3.5" />
+                <FaCar className="w-3.5 h-3.5" />
                 <span>Request Cart</span>
               </button>
             </div>
@@ -791,7 +791,7 @@ export function RoutePlanner({
             <div className="p-3.5 bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-950 text-white rounded-xl shadow-sm border border-blue-400/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-inner">
-                  📍
+                  <FaRoute className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <div className="font-extrabold text-xs sm:text-sm text-white flex items-center gap-1.5">
@@ -812,7 +812,7 @@ export function RoutePlanner({
                 rel="noopener noreferrer"
                 className="w-full sm:w-auto px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white font-extrabold text-xs rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 hover:scale-105 active:scale-95 shrink-0"
               >
-                <ExternalLink className="w-3.5 h-3.5" />
+                <FaArrowUpRightFromSquare className="w-3 h-3" />
                 <span>Open Route via Google Maps</span>
               </a>
             </div>
@@ -823,7 +823,7 @@ export function RoutePlanner({
             <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
               <div className="text-[10px] text-slate-500 font-semibold uppercase">Estimated Time</div>
               <div className="text-xs sm:text-sm font-black text-purple-950 flex items-center justify-center gap-1 mt-0.5">
-                <Clock className="w-3.5 h-3.5 text-purple-600" />
+                <FaClock className="w-3.5 h-3.5 text-purple-600" />
                 {activeRoute.estimatedMinutes} mins
               </div>
             </div>
@@ -831,7 +831,7 @@ export function RoutePlanner({
             <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
               <div className="text-[10px] text-slate-500 font-semibold uppercase">Total Distance</div>
               <div className="text-xs sm:text-sm font-black text-purple-950 flex items-center justify-center gap-1 mt-0.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-600" />
+                <FaLocationDot className="w-3.5 h-3.5 text-purple-600" />
                 {activeRoute.distanceMeters} m
               </div>
             </div>
@@ -839,7 +839,7 @@ export function RoutePlanner({
             <div className="p-2.5 bg-white rounded-xl border border-purple-100 shadow-2xs">
               <div className="text-[10px] text-slate-500 font-semibold uppercase">Max Slope Grade</div>
               <div className="text-xs sm:text-sm font-black text-emerald-700 flex items-center justify-center gap-1 mt-0.5">
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                <FaArrowTrendUp className="w-3.5 h-3.5 text-emerald-600" />
                 {activeRoute.maxSlopeGrade}% (ADA Compliant)
               </div>
             </div>

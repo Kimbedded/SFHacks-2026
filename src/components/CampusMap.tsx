@@ -2,7 +2,7 @@ import React, { useState, useEffect, Component, ErrorInfo } from 'react';
 import { Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import { CampusBuilding, AccessibilityReport, Coordinates, AccessibleRouteOption } from '../types';
 import { PolylineOverlay } from './PolylineOverlay';
-import { SFSU_CENTER } from '../data/sfsuCampusData';
+import { SFSU_CENTER, SFSU_ACCESSIBLE_PARKING, AccessibleParkingLocation } from '../data/sfsuCampusData';
 import {
   isApiKeyConfigured,
   getLastGmpError,
@@ -10,19 +10,20 @@ import {
   GOOGLE_MAPS_ERRORS,
 } from '../utils/googleMapsConfig';
 import {
-  Layers,
-  AlertTriangle,
-  Building,
-  CheckCircle2,
-  XCircle,
-  Navigation,
-  ArrowRight,
-  ShieldCheck,
-  Compass,
-  MapPin,
-  ExternalLink,
-  Info,
-} from 'lucide-react';
+  FaWheelchair,
+  FaSquareParking,
+  FaElevator,
+  FaTriangleExclamation,
+  FaBuilding,
+  FaRoute,
+  FaCompass,
+  FaLayerGroup,
+  FaArrowRight,
+  FaArrowUpRightFromSquare,
+  FaCircleCheck,
+  FaCircleXmark,
+  FaCar,
+} from 'react-icons/fa6';
 
 interface CampusMapProps {
   buildings: CampusBuilding[];
@@ -34,7 +35,6 @@ interface CampusMapProps {
 
 // Convert SFSU GPS coordinates to percentage positions (0-100%) for the radar map
 function gpsToPercent(coords: Coordinates): { left: string; top: string } {
-  // SFSU campus bounding box
   const minLng = -122.4835;
   const maxLng = -122.474;
   const minLat = 37.7212;
@@ -92,10 +92,12 @@ export function CampusMap({
 }: CampusMapProps) {
   const [selectedBuilding, setSelectedBuilding] = useState<CampusBuilding | null>(null);
   const [selectedReport, setSelectedReport] = useState<AccessibilityReport | null>(null);
+  const [selectedParking, setSelectedParking] = useState<AccessibleParkingLocation | null>(null);
 
   // Layer Toggles
   const [showElevators, setShowElevators] = useState(true);
   const [showEntrances, setShowEntrances] = useState(true);
+  const [showParking, setShowParking] = useState(true);
   const [showHazards, setShowHazards] = useState(true);
 
   // Google Maps State & Error Tracking
@@ -121,12 +123,12 @@ export function CampusMap({
   // The Offline Campus Barrier Radar View (Zero crash fallback)
   const renderRadarView = () => (
     <div className="relative w-full h-full bg-gradient-to-br from-slate-950 via-purple-950/40 to-slate-900 select-none overflow-hidden">
-      {/* Offline Mode Prominent Header Notice */}
+      {/* Offline Mode Header Notice */}
       <div className="absolute top-12 sm:top-14 left-3 right-3 z-15 pointer-events-none flex justify-center">
         <div className="px-3.5 py-1.5 bg-slate-950/90 backdrop-blur-md rounded-xl border border-amber-400/40 text-amber-200 text-[11px] shadow-xl flex items-center gap-2 pointer-events-auto max-w-xl text-center">
-          <Compass className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <FaCompass className="w-3.5 h-3.5 text-amber-400 shrink-0" />
           <span>
-            <strong className="text-amber-300">Demo / Offline Mode:</strong> Displaying sample SF State campus barrier, elevator, and power door data (not live Google Maps).
+            <strong className="text-amber-300">Demo / Offline Mode:</strong> Displaying SFSU barrier, accessible parking, elevator, and power door telemetry.
           </span>
         </div>
       </div>
@@ -139,7 +141,6 @@ export function CampusMap({
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#campus-grid)" />
-        {/* Campus Walkways: Malcolm X Plaza & Quad Axis */}
         <path d="M 50 150 Q 300 250 550 240 T 950 320" fill="none" stroke="#e0e7ff" strokeWidth="6" strokeOpacity="0.25" />
         <path d="M 450 50 L 500 550" fill="none" stroke="#e0e7ff" strokeWidth="6" strokeOpacity="0.2" />
         <circle cx="500" cy="270" r="85" fill="#10b981" fillOpacity="0.1" stroke="#10b981" strokeWidth="1" strokeDasharray="4 4" />
@@ -164,7 +165,7 @@ export function CampusMap({
       </div>
       <div className="absolute top-[70%] left-[8%] pointer-events-none">
         <div className="px-2 py-0.5 bg-black/60 rounded border border-white/20 text-[9px] font-bold text-slate-300">
-          Lot 20 / West Campus
+          Lot 20 ADA Garage
         </div>
       </div>
 
@@ -186,6 +187,7 @@ export function CampusMap({
               onClick={() => {
                 setSelectedBuilding(bldg);
                 setSelectedReport(null);
+                setSelectedParking(null);
               }}
               className={`group relative cursor-pointer px-2.5 py-1 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-1.5 transition-all ${
                 isSelected
@@ -196,7 +198,7 @@ export function CampusMap({
               }`}
               title={`${bldg.name} (${bldg.code})`}
             >
-              <Building className="w-3 h-3 shrink-0" />
+              <FaBuilding className="w-3 h-3 shrink-0" />
               <span className="font-black text-[11px]">{bldg.code}</span>
               {hasBrokenElevator && (
                 <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
@@ -216,7 +218,7 @@ export function CampusMap({
                     }`}
                     title={`Elevator ${elev.name}: ${elev.status}`}
                   >
-                    E
+                    <FaElevator className="w-2 h-2" />
                   </span>
                 ))}
               </div>
@@ -225,15 +227,48 @@ export function CampusMap({
             {/* Power Entrance Indicator */}
             {showEntrances && bldg.accessibleEntrances.some((e) => e.hasPowerDoor) && (
               <div
-                className="absolute -bottom-2 -left-1 w-3 h-3 rounded-full bg-blue-600 border border-white shadow flex items-center justify-center text-[7px] text-white"
+                className="absolute -bottom-2 -left-1 w-3.5 h-3.5 rounded-full bg-blue-600 border border-white shadow flex items-center justify-center text-white"
                 title="Power automatic entrance available"
               >
-                ♿
+                <FaWheelchair className="w-2.5 h-2.5" />
               </div>
             )}
           </div>
         );
       })}
+
+      {/* Accessible Parking on Radar */}
+      {showParking &&
+        SFSU_ACCESSIBLE_PARKING.map((pkg) => {
+          const pos = gpsToPercent(pkg.coordinates);
+          const isSelected = selectedParking?.id === pkg.id;
+
+          return (
+            <div
+              key={pkg.id}
+              style={{ left: pos.left, top: pos.top }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 z-15"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedParking(pkg);
+                  setSelectedBuilding(null);
+                  setSelectedReport(null);
+                }}
+                className={`cursor-pointer px-2 py-1 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-1 transition-all ${
+                  isSelected
+                    ? 'bg-amber-400 text-purple-950 border-white scale-125 z-30'
+                    : 'bg-blue-700 hover:bg-blue-600 text-white border-blue-300 hover:scale-110'
+                }`}
+                title={`${pkg.name} (${pkg.totalStalls} ADA Stalls)`}
+              >
+                <FaSquareParking className="w-3.5 h-3.5" />
+                <span className="font-black text-[10px]">{pkg.code}</span>
+              </button>
+            </div>
+          );
+        })}
 
       {/* Reported Campus Accessibility Barriers */}
       {showHazards &&
@@ -250,6 +285,7 @@ export function CampusMap({
                 onClick={() => {
                   setSelectedReport(rep);
                   setSelectedBuilding(null);
+                  setSelectedParking(null);
                 }}
                 style={{ left: pos.left, top: pos.top }}
                 className={`absolute -translate-x-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-transform cursor-pointer border-2 ${
@@ -259,7 +295,7 @@ export function CampusMap({
                 }`}
                 title={`${rep.title} - ${rep.urgency}`}
               >
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <FaTriangleExclamation className="w-3.5 h-3.5 shrink-0" />
               </button>
             );
           })}
@@ -310,19 +346,20 @@ export function CampusMap({
               href={activeRoute.googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1 shrink-0"
+              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5 shrink-0"
               title="Open full walking directions in Google Maps app"
             >
-              <ExternalLink className="w-3 h-3" />
+              <FaArrowUpRightFromSquare className="w-2.5 h-2.5" />
               <span>Google Maps</span>
             </a>
           )}
         </div>
       )}
+
       {/* Map Control Overlay */}
-      <div className="absolute top-3 left-3 z-20 bg-white/95 backdrop-blur-md p-2 rounded-xl shadow-lg border border-slate-200 text-xs flex flex-wrap items-center gap-2 max-w-[90%]">
+      <div className="absolute top-3 left-3 z-20 bg-white/95 backdrop-blur-md p-2 rounded-xl shadow-lg border border-slate-200 text-xs flex flex-wrap items-center gap-2.5 max-w-[90%]">
         <span className="font-bold text-slate-800 flex items-center gap-1">
-          <Layers className="w-3.5 h-3.5 text-purple-700" />
+          <FaLayerGroup className="w-3.5 h-3.5 text-purple-700" />
           Layers:
         </span>
 
@@ -333,7 +370,10 @@ export function CampusMap({
             onChange={(e) => setShowElevators(e.target.checked)}
             className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
           />
-          <span className="text-slate-700 font-medium">Elevators</span>
+          <span className="text-slate-700 font-medium flex items-center gap-1">
+            <FaElevator className="w-3 h-3 text-purple-700" />
+            Elevators
+          </span>
         </label>
 
         <label className="flex items-center space-x-1 cursor-pointer select-none">
@@ -343,7 +383,23 @@ export function CampusMap({
             onChange={(e) => setShowEntrances(e.target.checked)}
             className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
           />
-          <span className="text-slate-700 font-medium">Power Doors</span>
+          <span className="text-slate-700 font-medium flex items-center gap-1">
+            <FaWheelchair className="w-3 h-3 text-blue-600" />
+            Power Doors
+          </span>
+        </label>
+
+        <label className="flex items-center space-x-1 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showParking}
+            onChange={(e) => setShowParking(e.target.checked)}
+            className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
+          />
+          <span className="text-slate-700 font-medium flex items-center gap-1">
+            <FaSquareParking className="w-3 h-3 text-blue-700" />
+            ADA Parking
+          </span>
         </label>
 
         <label className="flex items-center space-x-1 cursor-pointer select-none">
@@ -353,7 +409,8 @@ export function CampusMap({
             onChange={(e) => setShowHazards(e.target.checked)}
             className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
           />
-          <span className="text-slate-700 font-medium text-rose-700">
+          <span className="text-slate-700 font-medium text-rose-700 flex items-center gap-1">
+            <FaTriangleExclamation className="w-3 h-3 text-rose-600" />
             Barriers ({reports.filter((r) => r.status !== 'resolved').length})
           </span>
         </label>
@@ -369,7 +426,7 @@ export function CampusMap({
         ) : (
           <div className="flex items-center gap-1.5">
             <span className="px-2.5 py-1 bg-purple-950/95 text-amber-300 border border-amber-400/50 font-bold text-[10px] rounded-lg shadow-md flex items-center gap-1.5 backdrop-blur-md">
-              <Compass className="w-3.5 h-3.5 text-amber-300" />
+              <FaCompass className="w-3.5 h-3.5 text-amber-300" />
               {mapsError ? 'Demo / Offline Radar Mode (Fallback)' : 'Demo / Offline Mode (Radar)'}
             </span>
           </div>
@@ -378,26 +435,30 @@ export function CampusMap({
 
       {/* Map Legend */}
       <div className="absolute bottom-4 right-4 z-20 bg-white/95 backdrop-blur-md p-2.5 rounded-xl shadow-lg border border-slate-200 text-[11px] hidden sm:block">
-        <div className="font-bold text-slate-800 mb-1 flex items-center gap-1">
-          <Compass className="w-3 h-3 text-purple-700" />
+        <div className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+          <FaWheelchair className="w-3.5 h-3.5 text-purple-700" />
           Campus Accessibility Legend
         </div>
         <div className="space-y-1 text-slate-600">
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+            <FaWheelchair className="w-3.5 h-3.5 text-blue-600" />
+            <span>Power Auto Entrance</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <FaSquareParking className="w-3.5 h-3.5 text-blue-700" />
+            <span>Accessible ADA Parking</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <FaElevator className="w-3.5 h-3.5 text-emerald-600" />
             <span>Elevator Operational</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 inline-block animate-pulse"></span>
+            <FaElevator className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
             <span>Elevator Out of Service</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>
+            <FaTriangleExclamation className="w-3.5 h-3.5 text-amber-500" />
             <span>Active Hazard / Detour</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 inline-block"></span>
-            <span>Power Auto Entrance</span>
           </div>
         </div>
       </div>
@@ -433,6 +494,7 @@ export function CampusMap({
                     onClick={() => {
                       setSelectedBuilding(building);
                       setSelectedReport(null);
+                      setSelectedParking(null);
                     }}
                   >
                     <div
@@ -442,7 +504,7 @@ export function CampusMap({
                           : 'bg-purple-900 text-white border-purple-400'
                       }`}
                     >
-                      <Building className="w-3.5 h-3.5 shrink-0" />
+                      <FaBuilding className="w-3.5 h-3.5 shrink-0" />
                       <span className="font-extrabold">{building.code}</span>
                       {hasBrokenElevator && (
                         <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
@@ -460,6 +522,7 @@ export function CampusMap({
                         onClick={() => {
                           setSelectedBuilding(building);
                           setSelectedReport(null);
+                          setSelectedParking(null);
                         }}
                       >
                         <div
@@ -469,13 +532,33 @@ export function CampusMap({
                               : 'bg-slate-700 text-white border-slate-400'
                           }`}
                         >
-                          <span className="text-[10px] font-bold">♿</span>
+                          <FaWheelchair className="w-3.5 h-3.5 text-white" />
                         </div>
                       </AdvancedMarker>
                     ))}
                 </React.Fragment>
               );
             })}
+
+            {/* Accessible Parking Locations on Google Maps */}
+            {showParking &&
+              SFSU_ACCESSIBLE_PARKING.map((pkg) => (
+                <AdvancedMarker
+                  key={pkg.id}
+                  position={pkg.coordinates}
+                  title={`${pkg.name} (${pkg.totalStalls} ADA Stalls)`}
+                  onClick={() => {
+                    setSelectedParking(pkg);
+                    setSelectedBuilding(null);
+                    setSelectedReport(null);
+                  }}
+                >
+                  <div className="cursor-pointer px-2 py-1 rounded-xl shadow-lg border-2 border-white bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold flex items-center gap-1.5 transition-all hover:scale-110">
+                    <FaSquareParking className="w-4 h-4 text-white" />
+                    <span className="font-extrabold text-[11px]">{pkg.code}</span>
+                  </div>
+                </AdvancedMarker>
+              ))}
 
             {/* Active Barriers & Hazards */}
             {showHazards &&
@@ -489,10 +572,11 @@ export function CampusMap({
                     onClick={() => {
                       setSelectedReport(rep);
                       setSelectedBuilding(null);
+                      setSelectedParking(null);
                     }}
                   >
                     <div className="w-7 h-7 rounded-full bg-amber-400 text-purple-950 border-2 border-purple-950 flex items-center justify-center shadow-lg hover:scale-125 transition-transform cursor-pointer">
-                      <AlertTriangle className="w-4 h-4 text-purple-950" />
+                      <FaTriangleExclamation className="w-4 h-4 text-purple-950" />
                     </div>
                   </AdvancedMarker>
                 ))}
@@ -501,7 +585,7 @@ export function CampusMap({
             {activeRoute && activeRoute.pathCoordinates && activeRoute.pathCoordinates.length > 0 && (
               <PolylineOverlay
                 path={activeRoute.pathCoordinates}
-                strokeColor="#f59e0b"
+                strokeColor="#2563eb"
                 strokeWeight={6}
                 strokeOpacity={0.9}
               />
@@ -540,67 +624,148 @@ export function CampusMap({
 
           {/* Elevator Status List */}
           <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            <span className="font-bold text-slate-700 block text-[11px]">Elevators & Lifts:</span>
+            <span className="font-bold text-slate-700 flex items-center gap-1 text-[11px]">
+              <FaElevator className="w-3 h-3 text-purple-700" />
+              Elevators & Lifts:
+            </span>
             {selectedBuilding.elevators.length === 0 ? (
               <p className="text-slate-400 italic">No elevators in this single-story structure.</p>
             ) : (
               selectedBuilding.elevators.map((elev) => (
                 <div key={elev.id} className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-700 font-medium">
-                    {elev.name} (Floors {elev.floorsServed})
+                  <span className="text-slate-800 font-medium">
+                    {elev.name} (Fl: {elev.floorsServed})
                   </span>
                   <span
-                    className={`px-2 py-0.5 rounded-full font-bold text-[10px] flex items-center gap-1 ${
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                       elev.status === 'operational'
                         ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-rose-100 text-rose-800'
+                        : 'bg-rose-100 text-rose-800 animate-pulse'
                     }`}
                   >
-                    {elev.status === 'operational' ? (
-                      <CheckCircle2 className="w-3 h-3" />
-                    ) : (
-                      <XCircle className="w-3 h-3" />
-                    )}
-                    {elev.status === 'operational' ? 'Active' : 'Out of Service'}
+                    {elev.status}
                   </span>
                 </div>
               ))
             )}
           </div>
 
-          {/* Quick Action Buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
+          {/* Accessible Entrances */}
+          <div className="space-y-1 bg-purple-50/50 p-2.5 rounded-xl border border-purple-100">
+            <span className="font-bold text-purple-950 flex items-center gap-1 text-[11px]">
+              <FaWheelchair className="w-3 h-3 text-blue-600" />
+              Power Automated Entrances:
+            </span>
+            {selectedBuilding.accessibleEntrances.map((entrance, idx) => (
+              <div key={idx} className="text-[11px] text-purple-900 flex items-center gap-1">
+                <span>•</span>
+                <span>{entrance.description}</span>
+                {entrance.hasPowerDoor && (
+                  <span className="text-[9px] font-bold px-1 rounded bg-blue-100 text-blue-800">
+                    Auto-Door
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 pt-1">
             <button
-              onClick={() => onSelectBuildingForRoute(selectedBuilding, true)}
-              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-center text-[11px] transition-colors"
+              onClick={() => {
+                onSelectBuildingForRoute(selectedBuilding, false);
+                setSelectedBuilding(null);
+              }}
+              className="flex-1 py-2 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold rounded-xl shadow transition-transform active:scale-95 flex items-center justify-center gap-1.5"
             >
-              Start Route Here
+              <FaRoute className="w-3.5 h-3.5" />
+              <span>Route Here</span>
             </button>
             <button
-              onClick={() => onSelectBuildingForRoute(selectedBuilding, false)}
-              className="px-2.5 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold rounded-xl text-center text-[11px] transition-colors"
+              onClick={() => {
+                onReportAtLocation(selectedBuilding.name, selectedBuilding.coordinates, selectedBuilding.id);
+                setSelectedBuilding(null);
+              }}
+              className="px-3 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-700 font-semibold rounded-xl transition-colors"
+              title="Report an accessibility issue at this building"
             >
-              Route Destination
+              <FaTriangleExclamation className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
       )}
 
-      {/* Report Info Window / Popup Card */}
-      {selectedReport && (
-        <div className="absolute bottom-4 left-4 z-30 max-w-sm w-full bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-slate-200 text-xs space-y-3 animate-fadeIn">
+      {/* Accessible Parking Details Popup Card */}
+      {selectedParking && (
+        <div className="absolute bottom-4 left-4 z-30 max-w-sm w-full bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-blue-200 text-xs space-y-3 animate-fadeIn">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded bg-amber-100 text-amber-800">
-                <AlertTriangle className="w-4 h-4" />
+            <div>
+              <div className="flex items-center gap-1.5">
+                <FaSquareParking className="w-4 h-4 text-blue-700" />
+                <h4 className="font-extrabold text-sm text-slate-900 leading-tight">
+                  {selectedParking.name}
+                </h4>
+              </div>
+              <p className="text-[11px] text-blue-800 font-semibold mt-0.5">
+                {selectedParking.totalStalls} ADA Stalls • {selectedParking.vanAccessibleStalls} Van Accessible • {selectedParking.evAccessibleStalls} EV Accessible
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedParking(null)}
+              className="text-slate-400 hover:text-slate-700 font-bold text-sm px-1.5 py-0.5 rounded bg-slate-100"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="space-y-1.5 bg-blue-50/70 p-2.5 rounded-xl border border-blue-100 text-slate-700">
+            <div>
+              <span className="font-bold text-blue-950">Required Permit: </span>
+              <span>{selectedParking.permitRequirement}</span>
+            </div>
+            <div>
+              <span className="font-bold text-blue-950">Pedestrian Route: </span>
+              <span>{selectedParking.pedestrianRoute}</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${selectedParking.coordinates.lat},${selectedParking.coordinates.lng}&travelmode=driving`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5 transition-transform hover:scale-105"
+            >
+              <FaSquareParking className="w-3.5 h-3.5" />
+              <span>Drive & Park in Google Maps</span>
+            </a>
+
+            <button
+              onClick={() => {
+                onReportAtLocation(selectedParking.name, selectedParking.coordinates);
+                setSelectedParking(null);
+              }}
+              className="text-slate-500 hover:text-purple-900 font-semibold text-xs"
+            >
+              Report Issue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Hazard Report Info Window */}
+      {selectedReport && (
+        <div className="absolute bottom-4 left-4 z-30 max-w-sm w-full bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border border-rose-200 text-xs space-y-2.5 animate-fadeIn">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded-lg bg-rose-100 text-rose-800">
+                <FaTriangleExclamation className="w-4 h-4" />
               </span>
               <div>
                 <h4 className="font-extrabold text-sm text-slate-900 leading-tight">
                   {selectedReport.title}
                 </h4>
-                <span className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">
-                  {selectedReport.urgency} Urgency • {selectedReport.category.replace('_', ' ')}
-                </span>
+                <span className="text-[10px] text-slate-500">{selectedReport.locationName}</span>
               </div>
             </div>
             <button
@@ -611,24 +776,18 @@ export function CampusMap({
             </button>
           </div>
 
-          <p className="text-slate-600 text-[11px] leading-relaxed bg-slate-50 p-2 rounded-xl border border-slate-100">
-            {selectedReport.description}
-          </p>
+          <p className="text-slate-600 text-[11px] leading-relaxed">{selectedReport.description}</p>
 
           {selectedReport.aiAnalysis?.suggestedDetour && (
-            <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-950 font-medium">
-              <strong>Suggested Detour:</strong> {selectedReport.aiAnalysis.suggestedDetour}
+            <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900">
+              <strong className="block text-amber-950 font-bold">Suggested ADA Detour:</strong>
+              {selectedReport.aiAnalysis.suggestedDetour}
             </div>
           )}
 
-          <div className="flex items-center justify-between text-[11px] text-slate-400 border-t border-slate-100 pt-2">
-            <span>Work Order: {selectedReport.facilitiesWorkOrderId || 'Pending'}</span>
-            <button
-              onClick={() => onReportAtLocation(selectedReport.locationName, selectedReport.coordinates)}
-              className="text-purple-700 hover:text-purple-900 font-bold"
-            >
-              Report update
-            </button>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+            <span>Reported: {selectedReport.reportedAt}</span>
+            <span className="font-bold text-purple-900">{selectedReport.upvotes} Student Verifications</span>
           </div>
         </div>
       )}

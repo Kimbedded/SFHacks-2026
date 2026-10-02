@@ -594,3 +594,63 @@ export const INITIAL_REPORTS: AccessibilityReport[] = [
     },
   },
 ];
+
+export interface AccessibleParkingLocation {
+  id: string;
+  name: string;
+  code: string;
+  coordinates: { lat: number; lng: number };
+  totalStalls: number;
+  vanAccessibleStalls: number;
+  evAccessibleStalls: number;
+  permitRequirement: string;
+  pedestrianRoute: string;
+}
+
+export const SFSU_ACCESSIBLE_PARKING: AccessibleParkingLocation[] = [
+  {
+    id: 'lot-20',
+    name: 'Lot 20 Parking Garage (ADA Ground Floor)',
+    code: 'LOT 20',
+    coordinates: { lat: 37.7248, lng: -122.4832 },
+    totalStalls: 36,
+    vanAccessibleStalls: 8,
+    evAccessibleStalls: 4,
+    permitRequirement: 'CA DMV Disabled Placard + SFSU Permit / Day Pass',
+    pedestrianRoute: 'Level 1 direct ADA pathway to Science and Thornton Hall via paved bridge',
+  },
+  {
+    id: 'north-state',
+    name: 'North State Drive ADA Surface Lot',
+    code: 'N-STATE',
+    coordinates: { lat: 37.7258, lng: -122.4802 },
+    totalStalls: 14,
+    vanAccessibleStalls: 4,
+    evAccessibleStalls: 2,
+    permitRequirement: 'CA DMV Disabled Placard',
+    pedestrianRoute: 'Direct curb ramp connection to Hensill Hall and Science Quad',
+  },
+  {
+    id: 'state-drive-west',
+    name: 'State Drive Accessible Visitor Stalls',
+    code: 'ST-DRIVE',
+    coordinates: { lat: 37.7225, lng: -122.482 },
+    totalStalls: 12,
+    vanAccessibleStalls: 3,
+    evAccessibleStalls: 2,
+    permitRequirement: 'CA DMV Disabled Placard + Hourly Machine Meter',
+    pedestrianRoute: 'Gentle slope connector to Marcus Hall and Creative Arts',
+  },
+  {
+    id: 'tapia-dropoff',
+    name: 'Tapia Drive ADA Loading & Accessible Stalls',
+    code: 'TAPIA',
+    coordinates: { lat: 37.7226, lng: -122.4768 },
+    totalStalls: 8,
+    vanAccessibleStalls: 2,
+    evAccessibleStalls: 0,
+    permitRequirement: '15-min Active Loading / CA Disabled Placard',
+    pedestrianRoute: 'Zero-step entrance into Fine Arts and Humanities corridor',
+  },
+];
+

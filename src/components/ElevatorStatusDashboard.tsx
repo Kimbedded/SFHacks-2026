@@ -1,25 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { CampusBuilding, AccessibilityReport } from '../types';
 import {
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  ThumbsUp,
-  Building,
-  RefreshCw,
-  Search,
-  ExternalLink,
-  Phone,
-  Layers,
-  Wrench,
-  Clock,
-  ArrowRight,
-  Flame,
-  PlusCircle,
-  ShieldCheck,
-  Radio,
-  FileText,
-} from 'lucide-react';
+  FaElevator,
+  FaWheelchair,
+  FaSquareParking,
+  FaWrench,
+  FaFire,
+  FaTowerBroadcast,
+  FaArrowRight,
+  FaMagnifyingGlass,
+  FaPlus,
+  FaThumbsUp,
+  FaTriangleExclamation,
+  FaBuilding,
+  FaClock,
+} from 'react-icons/fa6';
 import {
   subscribeToElevators,
   subscribeToFacilities,
@@ -195,11 +190,11 @@ export function ElevatorStatusDashboard({
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <span className="p-1 rounded-md bg-amber-400 text-purple-950 font-bold text-xs flex items-center gap-1">
-              <Radio className="w-3 h-3 text-purple-950 animate-pulse" />
+              <FaTowerBroadcast className="w-3 h-3 text-purple-950 animate-pulse" />
               LIVE TELEMETRY
             </span>
             <span className="p-1 rounded-md bg-purple-800/80 text-amber-300 font-bold text-xs flex items-center gap-1 border border-purple-600">
-              <Flame className="w-3 h-3 text-amber-400" />
+              <FaFire className="w-3 h-3 text-amber-400" />
               FIREBASE FIRESTORE SYNCED
             </span>
             <h2 className="text-xl font-extrabold tracking-tight text-white">
@@ -222,7 +217,7 @@ export function ElevatorStatusDashboard({
             className="px-3.5 py-3 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5"
           >
             <span>Gator Shuttle</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <FaArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
@@ -237,7 +232,7 @@ export function ElevatorStatusDashboard({
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <span className="text-base">🛗</span>
+          <FaElevator className="w-4 h-4 text-amber-300" />
           <span>SFSU Elevator Fleet ({allElevators.length})</span>
         </button>
 
@@ -249,7 +244,7 @@ export function ElevatorStatusDashboard({
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <Wrench className="w-4 h-4 text-amber-400" />
+          <FaWrench className="w-3.5 h-3.5 text-amber-400" />
           <span>Facilities Work Orders ({facilitiesTickets.length})</span>
         </button>
       </div>
@@ -274,7 +269,7 @@ export function ElevatorStatusDashboard({
             {/* Filters */}
             <div className="flex items-center gap-2">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                <FaMagnifyingGlass className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
@@ -409,7 +404,7 @@ export function ElevatorStatusDashboard({
                 onClick={() => setIsCreatingTicket(!isCreatingTicket)}
                 className="px-3 py-1.5 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
               >
-                <PlusCircle className="w-3.5 h-3.5" />
+                <FaPlus className="w-3.5 h-3.5" />
                 <span>Log Facility Work Order</span>
               </button>
 
@@ -442,7 +437,7 @@ export function ElevatorStatusDashboard({
             >
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-sm text-purple-950 flex items-center gap-2">
-                  <Wrench className="w-4 h-4 text-purple-700" />
+                  <FaWrench className="w-4 h-4 text-purple-700" />
                   Dispatch SFSU Facilities Work Order to Firestore
                 </h4>
                 <button
@@ -592,7 +587,7 @@ export function ElevatorStatusDashboard({
                     onClick={() => handleUpvoteFacility(ticket.id, ticket.upvotes || 0)}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-purple-50 hover:text-purple-900 font-semibold text-slate-700 transition-colors"
                   >
-                    <ThumbsUp className="w-3.5 h-3.5 text-purple-700" />
+                    <FaThumbsUp className="w-3.5 h-3.5 text-purple-700" />
                     <span>Confirm / Upvote ({ticket.upvotes || 0})</span>
                   </button>
                 </div>
@@ -606,7 +601,7 @@ export function ElevatorStatusDashboard({
       <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <FaTriangleExclamation className="w-4 h-4 text-amber-600" />
             <h3 className="font-extrabold text-base text-slate-900">
               Community Verified Campus Barriers ({reports.length})
             </h3>
@@ -634,7 +629,7 @@ export function ElevatorStatusDashboard({
                 onClick={() => onUpvoteReport(rep.id)}
                 className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 hover:border-purple-400 hover:text-purple-900 shadow-sm shrink-0 transition-colors"
               >
-                <ThumbsUp className="w-3.5 h-3.5 text-purple-700" />
+                <FaThumbsUp className="w-3.5 h-3.5 text-purple-700" />
                 <span>Verify ({rep.upvotes})</span>
               </button>
             </div>

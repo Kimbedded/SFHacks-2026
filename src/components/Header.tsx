@@ -1,16 +1,18 @@
 import React from 'react';
 import {
-  Compass,
-  Camera,
-  AlertTriangle,
-  Phone,
-  Car,
-  Heart,
-  Eye,
-  Type,
-  Volume2,
-  VolumeX,
-} from 'lucide-react';
+  FaWheelchair,
+  FaElevator,
+  FaTriangleExclamation,
+  FaRoute,
+  FaHeart,
+  FaPhone,
+  FaCar,
+  FaEye,
+  FaFont,
+  FaVolumeHigh,
+  FaVolumeXmark,
+  FaCamera,
+} from 'react-icons/fa6';
 
 interface HeaderProps {
   activeTab: 'map' | 'report' | 'elevators' | 'support';
@@ -49,36 +51,36 @@ export function Header({
           {/* High Contrast Toggle */}
           <button
             onClick={() => setHighContrast((prev) => !prev)}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               highContrast ? 'bg-amber-400 text-black font-bold' : 'bg-white/10 text-purple-200 hover:text-white'
             }`}
             title="Toggle high contrast accessibility theme"
           >
-            <Eye className="w-3 h-3" />
+            <FaEye className="w-3 h-3" />
             <span className="hidden xs:inline">High Contrast</span>
           </button>
 
           {/* Text Size Toggle */}
           <button
             onClick={() => setLargeText((prev) => !prev)}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               largeText ? 'bg-amber-400 text-black font-bold' : 'bg-white/10 text-purple-200 hover:text-white'
             }`}
             title="Toggle larger typography"
           >
-            <Type className="w-3 h-3" />
+            <FaFont className="w-3 h-3" />
             <span className="hidden xs:inline">Large Text</span>
           </button>
 
           {/* Visual Alert Mode Toggle */}
           <button
             onClick={() => setVisualAlertsOnly((prev) => !prev)}
-            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               visualAlertsOnly ? 'bg-amber-400 text-black font-bold' : 'bg-white/10 text-purple-200 hover:text-white'
             }`}
             title="Visual text alerts for auditory barrier accommodation"
           >
-            {visualAlertsOnly ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+            {visualAlertsOnly ? <FaVolumeXmark className="w-3 h-3" /> : <FaVolumeHigh className="w-3 h-3" />}
             <span className="hidden sm:inline">Visual Alerts</span>
           </button>
         </div>
@@ -89,7 +91,7 @@ export function Header({
         {/* Brand */}
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('map')}>
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 font-black flex items-center justify-center shadow-md border-2 border-amber-300">
-            <span className="text-xl">♿</span>
+            <FaWheelchair className="w-5 h-5 text-purple-950" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -113,7 +115,7 @@ export function Header({
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-bold text-xs rounded-xl shadow-md transition-transform active:scale-95 border border-amber-300"
             title="Request Gator Mobility Golf Cart Shuttle"
           >
-            <Car className="w-4 h-4 shrink-0" />
+            <FaCar className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">Gator Cart Ride</span>
             <span className="sm:hidden">Ride</span>
           </button>
@@ -123,7 +125,7 @@ export function Header({
             className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-400/40 shadow-sm transition-transform active:scale-95"
             title="SFSU Accessibility Hotlines (DPRC, CAPS, UPD)"
           >
-            <Phone className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+            <FaPhone className="w-3 h-3 text-amber-300 shrink-0" />
             <span className="hidden sm:inline">DPRC Hotlines</span>
             <span className="sm:hidden">Hotlines</span>
           </button>
@@ -140,7 +142,7 @@ export function Header({
               : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
           }`}
         >
-          <Compass className="w-4 h-4" />
+          <FaRoute className="w-4 h-4" />
           <span>Campus Navigator</span>
         </button>
 
@@ -152,7 +154,7 @@ export function Header({
               : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
           }`}
         >
-          <Camera className="w-4 h-4" />
+          <FaCamera className="w-4 h-4" />
           <span>AI Hazard Scanner & Report</span>
         </button>
 
@@ -164,7 +166,7 @@ export function Header({
               : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
           }`}
         >
-          <AlertTriangle className="w-4 h-4" />
+          <FaElevator className="w-4 h-4" />
           <span>Elevators & Facilities Status</span>
         </button>
 
@@ -176,7 +178,7 @@ export function Header({
               : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
           }`}
         >
-          <Heart className="w-4 h-4" />
+          <FaHeart className="w-4 h-4" />
           <span>Gator Rides & CAPS Therapy</span>
         </button>
       </div>
