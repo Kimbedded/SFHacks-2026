@@ -156,17 +156,34 @@ export async function planAccessibleRouteAI(params: {
 }) {
   try {
     const prompt = `
-Plan an accessible campus route across San Francisco State University (SFSU).
+Plan a low-barrier, ADA-compliant accessible campus route across San Francisco State University (SFSU).
+
 Origin: ${params.origin}
 Destination: ${params.destination}
 Student Mobility Profile: ${params.mobilityProfile}
 Active Reported Campus Barriers to Avoid: ${params.activeBarriers.join('; ') || 'None reported'}
 
-Guidelines:
-- If elevators are offline, avoid multilevel steps and route via outdoor paved ADA switchback ramps or suggest Gator Mobility Cart pick-up.
-- Keep slope under 5% where possible (ADA max 8.33%).
-- Identify power-assist door entrances and rest benches along the way.
-- Provide a clear, encouraging step-by-step navigation breakdown.
+Known SFSU Topological Waypoints & Slopes:
+- 19th & Holloway Transit Hub: (37.7234, -122.4750) [Transit stop, level boarding curb cut]
+- Hensill Hall Courtyard: (37.7237, -122.4756) [Flat concrete path, 2.5% slope]
+- Thornton Hall Walkway: (37.7233, -122.4764) [Shallow ramp 3.8% slope, dual handrails]
+- Student Services Plaza: (37.7245, -122.4770) [Wide brick plaza, 2.0% grade]
+- Malcolm X Plaza Central Hub: (37.7235, -122.4782) [Main paved corridor, 1.8% slope]
+- Cesar Chavez Center North Atrium Entrance: (37.7239, -122.4786) [Level entrance with elevator bank]
+- Cesar Chavez Center South Bookstore Ramp: (37.7231, -122.4783) [Outdoor ADA switchback ramp, 4.2% slope]
+- Library Malcolm X Gateway: (37.7218, -122.4782) [Automatic double sliding doors, zero threshold]
+- Library Northwest Peet's Ramp: (37.7216, -122.4788) [Low-grade 3.5% concrete ramp]
+- Fine Arts North Walkway: (37.7220, -122.4794) [Breezeway, 3.8% grade]
+- Fine Arts West Amphitheater Path: (37.7219, -122.4797) [WARNING: Steep 9.4% slope - avoid for manual wheelchairs!]
+- Humanities Quad Breezeway: (37.7225, -122.4805) [Flat courtyard, 2.2% slope]
+- Marcus Hall State Drive Gateway: (37.7214, -122.4813) [ADA power push-pad entrance]
+- Mashouf Wellness Center: (37.7214, -122.4830) [Zero-entry flat entrance]
+- Lot 20 Pedestrian Bridge Level 3: (37.7210, -122.4764) [Elevated covered bridge, level floor]
+
+Rules:
+1. If an elevator is reported out of service (e.g. Cesar Chavez North Elevator down), route around it using exterior paved switchback ramps (e.g. South Bookstore Ramp) or recommend Gator Mobility Cart shuttle.
+2. For manual wheelchair users, avoid slopes > 5.0%.
+3. Output exact lat/lng coordinates for each turn/step along the real campus path.
 `;
 
     const response = await ai.models.generateContent({
@@ -174,7 +191,7 @@ Guidelines:
       contents: prompt,
       config: {
         systemInstruction:
-          'You are the SFSU Campus Accessibility Guide. Output your response as a valid JSON object.',
+          'You are the SFSU Campus Accessibility Guide and ADA route optimization engine. Output strictly valid JSON without markdown wrapping.',
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
@@ -194,8 +211,11 @@ Guidelines:
                   instruction: { type: Type.STRING },
                   accessibilityDetail: { type: Type.STRING },
                   isRampOrElevator: { type: Type.BOOLEAN },
+                  lat: { type: Type.NUMBER, description: 'Latitude coordinate for this step' },
+                  lng: { type: Type.NUMBER, description: 'Longitude coordinate for this step' },
+                  stepSlopePercentage: { type: Type.NUMBER, description: 'Estimated slope grade for this segment' },
                 },
-                required: ['instruction', 'accessibilityDetail', 'isRampOrElevator'],
+                required: ['instruction', 'accessibilityDetail', 'isRampOrElevator', 'lat', 'lng'],
               },
             },
             transitConnectionTip: { type: Type.STRING },
@@ -228,21 +248,33 @@ Guidelines:
           instruction: `Depart from ${params.origin} using the automatic power-door gateway.`,
           accessibilityDetail: 'Level threshold, no steps.',
           isRampOrElevator: false,
+          lat: 37.7234,
+          lng: -122.4750,
+          stepSlopePercentage: 1.5,
         },
         {
-          instruction: 'Proceed east along Malcolm X Plaza towards the central fountain.',
+          instruction: 'Proceed west along Malcolm X Plaza towards the central fountain.',
           accessibilityDetail: 'Wide textured pavers, grade under 2.5%, high contrast lighting.',
           isRampOrElevator: false,
+          lat: 37.7235,
+          lng: -122.4782,
+          stepSlopePercentage: 2.1,
         },
         {
           instruction: 'Take the South connecting walkway towards the destination breezeway.',
           accessibilityDetail: 'Gentle 3.5% low-grade ramp with dual handrails.',
           isRampOrElevator: true,
+          lat: 37.7231,
+          lng: -122.4783,
+          stepSlopePercentage: 3.5,
         },
         {
           instruction: `Arrive at ${params.destination} accessible entrance.`,
           accessibilityDetail: 'Automatic blue push-plate operator installed at entrance.',
           isRampOrElevator: false,
+          lat: 37.7238,
+          lng: -122.4785,
+          stepSlopePercentage: 1.0,
         },
       ],
       transitConnectionTip: 'Muni M-Ocean View ramp connection is 4 minutes east on 19th Ave.',

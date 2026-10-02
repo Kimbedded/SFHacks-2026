@@ -92,18 +92,17 @@ export function RoutePlanner({
       const data = await response.json();
       const plan = data.routePlan;
 
-      // Construct path coordinates for Google Map polyline
+      // Construct path coordinates for Google Map polyline from Gemini step waypoints
       const startCoord = origin.coordinates;
       const endCoord = dest.coordinates;
-      const midLat = (startCoord.lat + endCoord.lat) / 2;
-      const midLng = (startCoord.lng + endCoord.lng) / 2;
+      
+      const stepCoords: Coordinates[] = (plan.steps || [])
+        .filter((s: any) => s.lat && s.lng)
+        .map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }));
 
-      // Polyline points through SFSU Malcolm X Plaza central paved corridor
       const polylineCoords: Coordinates[] = [
         startCoord,
-        { lat: midLat + 0.0002, lng: startCoord.lng },
-        { lat: 37.7235, lng: -122.4782 }, // Malcolm X Plaza hub
-        { lat: midLat, lng: endCoord.lng },
+        ...stepCoords,
         endCoord,
       ];
 
@@ -125,7 +124,7 @@ export function RoutePlanner({
           accessibilityNotes: s.accessibilityDetail,
           isElevatorNeeded: s.isRampOrElevator,
           isRamp: s.isRampOrElevator,
-          coordinates: { lat: midLat, lng: midLng },
+          coordinates: { lat: s.lat || startCoord.lat, lng: s.lng || startCoord.lng },
         })),
       };
 
