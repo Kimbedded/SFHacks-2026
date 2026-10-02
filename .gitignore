@@ -10,3 +10,4 @@ coverage/
 *.tsbuildinfo
 node-compile-cache/
 .*.hm
+bun.lock
