@@ -238,6 +238,18 @@ export function RoutePlanner({
     );
   });
 
+  // Turn-by-turn opens a focused, full-screen side-by-side view (directions + map)
+  const isFocusView = viewMode === 'corridor_active' && !!activeRoute;
+
+  useEffect(() => {
+    if (!isFocusView) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setViewMode('carousel');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isFocusView]);
+
   // Carousel Scroll Navigation
   const scrollCorridorCarousel = (direction: 'up' | 'down') => {
     if (!corridorCarouselRef.current) return;
@@ -455,11 +467,11 @@ export function RoutePlanner({
         {/* Mobility profile selector */}
         <div role="radiogroup" aria-label="Mobility profile" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {([
-            { value: 'Power Wheelchair', label: 'Power chair', icon: FaWheelchair },
-            { value: 'Manual Wheelchair', label: 'Manual chair', icon: FaWheelchairMove },
-            { value: 'Walker / Cane', label: 'Walker / cane', icon: FaPersonWalkingWithCane },
-            { value: 'Visual / Tactile', label: 'Low vision', icon: FaEyeLowVision },
-          ] as const).map(({ value, label, icon: Icon }) => {
+            { value: 'Power Wheelchair', label: 'Power chair', icon: FaWheelchair, description: 'Step-free paths with wide turns and ramps or elevators.' },
+            { value: 'Manual Wheelchair', label: 'Manual chair', icon: FaWheelchairMove, description: 'Flatter, smooth paths to reduce pushing effort.' },
+            { value: 'Walker / Cane', label: 'Walker / cane', icon: FaPersonWalkingWithCane, description: 'Gentle slopes and fewer steps to ease walking.' },
+            { value: 'Visual / Tactile', label: 'Low vision', icon: FaEyeLowVision, description: 'Clear landmarks and tactile cues to help navigation.' },
+          ] as const).map(({ value, label, icon: Icon, description }) => {
             const selected = mobilityProfile === value;
             return (
               <button
@@ -468,18 +480,26 @@ export function RoutePlanner({
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setMobilityProfile(value)}
-                className={`min-h-11 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-bold transition-colors cursor-pointer ${
+                className={`min-h-11 flex flex-col items-start gap-1.5 px-3 py-2 rounded-xl border-2 text-left text-sm font-bold transition-colors cursor-pointer ${
                   selected
                     ? 'bg-purple-900 border-purple-900 text-white'
                     : 'bg-white border-slate-200 text-slate-700 hover:border-purple-300 hover:bg-purple-50'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${selected ? 'text-amber-300' : 'text-purple-700'}`} />
-                <span>{label}</span>
+                <span className="flex items-center gap-2">
+                  <Icon className={`w-4 h-4 shrink-0 ${selected ? 'text-amber-300' : 'text-purple-700'}`} />
+                  <span>{label}</span>
+                </span>
+                <span className={`text-xs font-normal leading-relaxed ${selected ? 'text-purple-100' : 'text-slate-500'}`}>
+                  {description}
+                </span>
               </button>
             );
           })}
         </div>
+        <p className="text-xs text-slate-500">
+          These profiles describe path preferences. Switching profiles does not yet change the calculated route.
+        </p>
 
         {/* Alternative starting points stay collapsed until requested. */}
         <details className="group border-t border-slate-100 pt-3">
@@ -540,8 +560,14 @@ export function RoutePlanner({
       </div>
 
       {/* ========================================================================= */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 xl:gap-6 items-start">
-        <div className="min-w-0">
+      <div
+        className={
+          isFocusView
+            ? 'fixed inset-0 z-[60] bg-slate-100 p-3 sm:p-4 overflow-y-auto md:overflow-hidden grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 animate-fadeIn'
+            : 'grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 xl:gap-6 items-start'
+        }
+      >
+        <div className={isFocusView ? 'min-w-0 md:h-full md:min-h-0' : 'min-w-0'}>
       {/* 2. MODE A: CORRIDORS CAROUSEL VIEW (WHEN BROWSING CAMPUS DESTINATIONS)   */}
       {/* ========================================================================= */}
       {viewMode === 'carousel' && (
@@ -698,7 +724,7 @@ export function RoutePlanner({
       {/* 3. MODE B: DIRECT ACCESSIBLE CAMPUS CORRIDOR WITH TURN-BY-TURN WAYPOINTS  */}
       {/* ========================================================================= */}
       {viewMode === 'corridor_active' && activeRoute && (
-        <div className="min-w-0 md:max-h-[650px] md:overflow-y-auto bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5 space-y-4 animate-fadeIn">
+        <div className="min-w-0 md:h-full md:min-h-0 flex flex-col gap-4 bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5">
           {/* Header: back, title, route summary, quick actions */}
           <div className="space-y-4 pb-5 border-b border-purple-100">
             <button
@@ -838,7 +864,7 @@ export function RoutePlanner({
           {/* Turn-by-turn steps */}
           <div
             ref={waypointCarouselRef}
-            className="flex flex-col gap-3 max-h-[420px] overflow-y-auto p-1 scroll-smooth"
+            className="flex flex-col gap-3 md:flex-1 md:min-h-0 md:overflow-y-auto p-1 scroll-smooth"
           >
             {activeRoute.steps.map((step, idx) => {
               const isSelected = selectedWaypointIndex === idx;
@@ -849,26 +875,26 @@ export function RoutePlanner({
                 <div
                   key={`waypoint-card-${idx}`}
                   onClick={() => onSelectWaypoint && onSelectWaypoint(idx)}
-                  className={`w-full min-w-0 shrink-0 p-4 rounded-xl border-2 transition-colors cursor-pointer flex items-start gap-3 ${
+                  className={`w-full min-w-0 shrink-0 p-4 rounded-xl border-2 transition-colors cursor-pointer flex flex-col gap-3 ${
                     isSelected
                       ? 'bg-purple-50 border-purple-600'
                       : 'bg-white border-slate-200 hover:border-purple-300'
                   }`}
                 >
-                  <span
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${
-                      isFirst
-                        ? 'bg-emerald-600 text-white'
-                        : isLast
-                        ? 'bg-purple-950 text-amber-300'
-                        : 'bg-purple-700 text-white'
-                    }`}
-                  >
-                    {idx + 1}
-                  </span>
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${
+                        isFirst
+                          ? 'bg-emerald-600 text-white'
+                          : isLast
+                          ? 'bg-purple-950 text-amber-300'
+                          : 'bg-purple-700 text-white'
+                      }`}
+                    >
+                      {idx + 1}
+                    </span>
 
-                  <div className="min-w-0 space-y-2">
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
                         {isFirst ? 'Departure' : isLast ? 'Destination' : `Waypoint ${idx + 1}`}
                       </div>
@@ -876,8 +902,9 @@ export function RoutePlanner({
                         {step.instruction}
                       </p>
                     </div>
+                  </div>
 
-                    <div className="text-xs text-purple-950 bg-purple-50 border border-purple-100 p-2.5 rounded-lg space-y-2">
+                    <div className={`w-full text-xs text-purple-950 border border-purple-100 p-3 rounded-lg space-y-2 ${isSelected ? 'bg-white' : 'bg-purple-50'}`}>
                       <div>
                         <strong className="block text-purple-900 font-bold mb-0.5">ADA Low-Barrier Detail</strong>
                         {step.accessibilityNotes}
@@ -900,7 +927,6 @@ export function RoutePlanner({
                         </span>
                       </div>
                     </div>
-                  </div>
                 </div>
               );
             })}
@@ -920,7 +946,17 @@ export function RoutePlanner({
       )}
 
         </div>
-        {mapPanel && <div className="min-w-0">{mapPanel}</div>}
+        {mapPanel && (
+          <div
+            className={
+              isFocusView
+                ? 'min-w-0 md:h-full md:min-h-0 [&>div]:h-full [&>div]:flex [&>div]:flex-col [&_.campus-map-root]:!h-[60vh] md:[&_.campus-map-root]:!h-auto md:[&_.campus-map-root]:flex-1 md:[&_.campus-map-root]:min-h-0'
+                : 'min-w-0'
+            }
+          >
+            {mapPanel}
+          </div>
+        )}
       </div>
 
       {/* Unified Route & Map Single Modal */}

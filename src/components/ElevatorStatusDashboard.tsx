@@ -26,6 +26,7 @@ import {
   seedElevatorsIfEmpty,
   seedFacilitiesIfEmpty,
 } from '../firebase/elevatorFacilityService';
+import { getElevatorPhoto, getFacilityPhoto } from '../data/facilityPhotos';
 
 interface ElevatorStatusDashboardProps {
   buildings: CampusBuilding[];
@@ -304,18 +305,27 @@ export function ElevatorStatusDashboard({
           {filteredElevators.length === 0 && <p className="p-6 text-center text-sm text-slate-500">{searchQuery ? 'No elevators match your search.' : filter === 'down' ? 'No elevator outages reported.' : 'No elevators in this category.'}</p>}
           {/* Elevators Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredElevators.map((elev) => {
+            {filteredElevators.map((elev, elevIdx) => {
               const isDown = elev.status === 'down';
 
               return (
                 <div
                   key={elev.id}
-                  className={`p-4 rounded-xl border transition-all ${
+                  className={`rounded-xl border overflow-hidden transition-all ${
                     isDown
                       ? 'border-rose-300 bg-rose-50/40'
                       : 'border-slate-200 bg-white hover:border-purple-300'
                   }`}
                 >
+                  <div className="h-28 bg-gradient-to-br from-purple-900 to-indigo-950 flex items-center justify-center">
+                    <img
+                      src={getElevatorPhoto(elevIdx)}
+                      alt={`${elev.name} elevator`}
+                      loading="lazy"
+                      className={`w-full h-full object-cover object-center ${isDown ? 'grayscale-[40%]' : ''}`}
+                    />
+                  </div>
+                  <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-900">
@@ -368,6 +378,7 @@ export function ElevatorStatusDashboard({
                     >
                       {isDown ? 'Mark Operational' : 'Simulate Outage'}
                     </button>
+                  </div>
                   </div>
                 </div>
               );
@@ -534,8 +545,21 @@ export function ElevatorStatusDashboard({
                 {group.tickets.map((ticket) => (
               <div
                 key={ticket.id}
-                className="p-4 rounded-xl border border-slate-200 bg-white hover:border-purple-300 shadow-sm transition-all"
+                className="rounded-xl border border-slate-200 bg-white hover:border-purple-300 shadow-sm transition-all flex overflow-hidden"
               >
+                <div className="w-24 sm:w-36 shrink-0 self-stretch bg-gradient-to-br from-purple-900 to-indigo-950 flex items-center justify-center">
+                  {getFacilityPhoto(ticket.facilityType) ? (
+                    <img
+                      src={getFacilityPhoto(ticket.facilityType)}
+                      alt={ticket.facilityType.replace(/_/g, ' ')}
+                      loading="lazy"
+                      className="w-full h-full object-cover object-center"
+                    />
+                  ) : (
+                    <FaBuilding className="w-8 h-8 text-purple-300/60" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-mono font-bold text-xs">
@@ -589,6 +613,7 @@ export function ElevatorStatusDashboard({
                     <FaThumbsUp className="w-3.5 h-3.5 text-purple-700" />
                     <span>Confirm / Upvote ({ticket.upvotes || 0})</span>
                   </button>
+                </div>
                 </div>
               </div>
                 ))}

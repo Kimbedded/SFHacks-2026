@@ -222,6 +222,7 @@ export function CampusMap({
   const [showEntrances, setShowEntrances] = useState(true);
   const [showParking, setShowParking] = useState(true);
   const [showHazards, setShowHazards] = useState(true);
+  const [showLegend, setShowLegend] = useState(false);
 
   // Google Maps State & Error Tracking
   const [mapsError, setMapsError] = useState<GoogleMapsErrorInfo | null>(getLastGmpError());
@@ -523,7 +524,7 @@ export function CampusMap({
     <div
       className={
         containerClassName ||
-        'relative w-full h-[520px] md:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900'
+        'campus-map-root relative w-full h-[520px] md:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900'
       }
     >
       {/* Floating Active Route Bar with Google Maps Action */}
@@ -555,82 +556,6 @@ export function CampusMap({
         </div>
       )}
 
-      {/* Map Control Overlay */}
-      <div className="absolute top-3 left-3 z-20 bg-white/95 backdrop-blur-md p-2 rounded-xl shadow-lg border border-slate-200 text-xs flex flex-wrap items-center gap-2.5 max-w-[90%]">
-        <span className="font-bold text-slate-800 flex items-center gap-1">
-          <FaLayerGroup className="w-3.5 h-3.5 text-purple-700" />
-          Layers:
-        </span>
-
-        <label className="flex items-center space-x-1 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showElevators}
-            onChange={(e) => setShowElevators(e.target.checked)}
-            className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
-          />
-          <span className="text-slate-700 font-medium flex items-center gap-1">
-            <FaElevator className="w-3 h-3 text-purple-700" />
-            Elevators
-          </span>
-        </label>
-
-        <label className="flex items-center space-x-1 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showEntrances}
-            onChange={(e) => setShowEntrances(e.target.checked)}
-            className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
-          />
-          <span className="text-slate-700 font-medium flex items-center gap-1">
-            <FaWheelchair className="w-3 h-3 text-blue-600" />
-            Power Doors
-          </span>
-        </label>
-
-        <label className="flex items-center space-x-1 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showParking}
-            onChange={(e) => setShowParking(e.target.checked)}
-            className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
-          />
-          <span className="text-slate-700 font-medium flex items-center gap-1">
-            <FaSquareParking className="w-3 h-3 text-blue-700" />
-            ADA Parking
-          </span>
-        </label>
-
-        <label className="flex items-center space-x-1 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showHazards}
-            onChange={(e) => setShowHazards(e.target.checked)}
-            className="rounded text-purple-600 focus:ring-purple-500 w-3.5 h-3.5"
-          />
-          <span className="text-slate-700 font-medium text-rose-700 flex items-center gap-1">
-            <FaTriangleExclamation className="w-3 h-3 text-rose-600" />
-            Barriers ({reports.filter((r) => r.status !== 'resolved').length})
-          </span>
-        </label>
-
-        {/* Route Focus Mode Toggle (Minimizes landmarks other than relevant ones) */}
-        {hasActiveWaypoints && (
-          <button
-            type="button"
-            onClick={() => setFocusRouteOnly((prev) => !prev)}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer border ${
-              focusRouteOnly
-                ? 'bg-purple-900 text-amber-300 border-amber-400/60 shadow-sm'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-            }`}
-            title="Toggle landmark minimization along the active corridor"
-          >
-            <span>{focusRouteOnly ? '🎯 Route Focus: Active' : '👁️ Show All Landmarks'}</span>
-          </button>
-        )}
-      </div>
-
       {/* Map Mode Indicator */}
       {!shouldRenderGoogleMaps && (
         <div className="absolute top-3 right-3 z-20">
@@ -641,12 +566,11 @@ export function CampusMap({
         </div>
       )}
 
-      {/* Map Legend */}
-      <div className="absolute bottom-4 right-4 z-20 bg-white/95 backdrop-blur-md p-2.5 rounded-xl shadow-lg border border-slate-200 text-[11px] hidden sm:block">
-        <div className="font-bold text-slate-800 mb-1 flex items-center gap-1.5">
-          <FaWheelchair className="w-3.5 h-3.5 text-purple-700" />
-          Campus Accessibility Legend
-        </div>
+      {/* Compact map layers and legend */}
+      <div className="absolute bottom-4 right-4 z-20 flex flex-col items-end gap-2">
+        {showLegend && (
+          <div id="campus-map-legend" className="max-w-[calc(100vw-2rem)] bg-white/95 backdrop-blur-md p-3 rounded-xl shadow-lg border border-slate-200 text-[11px]">
+            <div className="font-bold text-slate-800 mb-2">Campus Accessibility Legend</div>
         <div className="space-y-1 text-slate-600">
           <div className="flex items-center gap-1.5">
             <FaWheelchair className="w-3.5 h-3.5 text-blue-600" />
@@ -668,6 +592,40 @@ export function CampusMap({
             <FaTriangleExclamation className="w-3.5 h-3.5 text-amber-500" />
             <span>Active Hazard / Detour</span>
           </div>
+        </div>
+          </div>
+        )}
+        <div role="group" aria-label="Map layers and legend" className="flex items-center gap-1 bg-white/95 backdrop-blur-md p-1 rounded-xl shadow-lg border border-slate-200">
+          {[
+            { label: 'Elevators', icon: FaElevator, enabled: showElevators, toggle: () => setShowElevators((prev) => !prev) },
+            { label: 'Power doors', icon: FaWheelchair, enabled: showEntrances, toggle: () => setShowEntrances((prev) => !prev) },
+            { label: 'ADA parking', icon: FaSquareParking, enabled: showParking, toggle: () => setShowParking((prev) => !prev) },
+            { label: `Barriers (${reports.filter((r) => r.status !== 'resolved').length})`, icon: FaTriangleExclamation, enabled: showHazards, toggle: () => setShowHazards((prev) => !prev) },
+            ...(hasActiveWaypoints ? [{ label: 'Route focus', icon: FaRoute, enabled: focusRouteOnly, toggle: () => setFocusRouteOnly((prev) => !prev) }] : []),
+          ].map(({ label, icon: Icon, enabled, toggle }) => (
+            <button
+              key={label}
+              type="button"
+              aria-label={label}
+              aria-pressed={enabled}
+              title={label}
+              onClick={toggle}
+              className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-purple-700 focus-visible:outline-offset-2 ${enabled ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' : 'text-slate-400 hover:bg-slate-100'}`}
+            >
+              <Icon className="w-4 h-4" />
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-label="Map legend"
+            aria-expanded={showLegend}
+            aria-controls="campus-map-legend"
+            title="Map legend"
+            onClick={() => setShowLegend((prev) => !prev)}
+            className={`w-10 h-10 ml-1 border-l border-slate-200 rounded-lg flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-purple-700 focus-visible:outline-offset-2 ${showLegend ? 'bg-purple-900 text-white' : 'text-purple-700 hover:bg-purple-50'}`}
+          >
+            <FaLayerGroup className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
