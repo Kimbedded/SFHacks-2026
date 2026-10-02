@@ -120,4 +120,5 @@ export interface AccessibleRouteOption {
   elevationGainMeters: number;
   isFullyADACompliant: boolean;
   warningNotice?: string;
+  googleMapsUrl?: string;
 }

@@ -22,7 +22,9 @@ import {
   Laptop,
   Flame,
   X,
+  ExternalLink,
 } from 'lucide-react';
+import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl } from '../utils/googleDirections';
 
 interface RoutePlannerProps {
   buildings: CampusBuilding[];
@@ -177,8 +179,13 @@ export function RoutePlanner({
     const destName = `${dest.name} (${dest.code})`;
     const isElevatorDown = simulateOutage || dest.elevators.some((e) => e.status === 'down');
 
+    const startCoord = origin ? origin.coordinates : (userLocation || { lat: 37.7234, lng: -122.475 });
+    const endCoord = dest.coordinates;
+    const fallbackMapsUrl = getGoogleMapsExternalUrl(startCoord, endCoord, originName, destName);
+
     try {
-      const response = await fetch('/api/suggest-route', {
+      // 1. Fetch AI Accessibility Detour Guidance
+      const aiPromise = fetch('/api/suggest-route', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,44 +196,61 @@ export function RoutePlanner({
             ? [`${dest.name} elevator reported out of service (CRITICAL OUTAGE)`]
             : [],
         }),
-      });
+      })
+        .then((r) => r.json())
+        .catch(() => ({ routePlan: null }));
 
-      const data = await response.json();
-      const plan = data.routePlan;
+      // 2. Fetch High-Resolution Google Maps Pedestrian Path (Sidewalks & Walkways)
+      const directionsPromise = getGoogleMapsWalkingRoute(startCoord, endCoord, originName, destName)
+        .catch(() => null);
 
-      const startCoord = origin ? origin.coordinates : (userLocation || { lat: 37.7234, lng: -122.475 });
-      const endCoord = dest.coordinates;
+      const [aiData, googleDirections] = await Promise.all([aiPromise, directionsPromise]);
+      const plan = aiData?.routePlan || {};
 
-      const stepCoords: Coordinates[] = (plan.steps || [])
-        .filter((s: any) => s.lat && s.lng)
-        .map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }));
+      // Use true Google Maps pathway coordinates following actual campus walkways
+      const pathCoordinates: Coordinates[] =
+        googleDirections && googleDirections.pathCoordinates.length > 1
+          ? googleDirections.pathCoordinates
+          : [
+              startCoord,
+              ...((plan.steps || [])
+                .filter((s: any) => s.lat && s.lng)
+                .map((s: any) => ({ lat: Number(s.lat), lng: Number(s.lng) }))),
+              endCoord,
+            ];
 
-      const polylineCoords: Coordinates[] = [
-        startCoord,
-        ...stepCoords,
-        endCoord,
-      ];
+      const distanceMeters = googleDirections?.distanceMeters || plan.distanceMeters || 320;
+      const estimatedMinutes = googleDirections?.estimatedMinutes || plan.estimatedMinutes || 5;
 
       const routeOption: AccessibleRouteOption = {
         id: `route-${Date.now()}`,
         title: plan.routeTitle || `Accessible Route to ${dest.name}`,
         type: isElevatorDown ? 'shallowest_slope' : 'maximum_accessibility',
-        distanceMeters: plan.distanceMeters || 320,
-        estimatedMinutes: plan.estimatedMinutes || 5,
+        distanceMeters,
+        estimatedMinutes,
         maxSlopeGrade: plan.maxSlopeGrade || 3.4,
         elevationGainMeters: 3.8,
         isFullyADACompliant: true,
         warningNotice: isElevatorDown
           ? `REROUTED: ${dest.name} elevator is offline. Route avoids indoor stairs and guides via outdoor ADA switchback ramp.`
           : undefined,
-        pathCoordinates: polylineCoords,
-        steps: plan.steps.map((s: any) => ({
-          instruction: s.instruction,
-          accessibilityNotes: s.accessibilityDetail,
-          isElevatorNeeded: s.isRampOrElevator,
-          isRamp: s.isRampOrElevator,
-          coordinates: { lat: s.lat || startCoord.lat, lng: s.lng || startCoord.lng },
-        })),
+        pathCoordinates,
+        googleMapsUrl: googleDirections?.googleMapsUrl || fallbackMapsUrl,
+        steps: (plan.steps && plan.steps.length > 0)
+          ? plan.steps.map((s: any) => ({
+              instruction: s.instruction,
+              accessibilityNotes: s.accessibilityDetail,
+              isElevatorNeeded: s.isRampOrElevator,
+              isRamp: s.isRampOrElevator,
+              coordinates: { lat: s.lat || startCoord.lat, lng: s.lng || startCoord.lng },
+            }))
+          : (googleDirections?.steps || []).map((s: any) => ({
+              instruction: s.instruction,
+              accessibilityNotes: `Paved pedestrian sidewalk (${s.distance || 'accessible'})`,
+              isElevatorNeeded: false,
+              isRamp: false,
+              coordinates: s.coordinates || startCoord,
+            })),
       };
 
       setActiveRoute(routeOption);
@@ -725,7 +749,20 @@ export function RoutePlanner({
               <div className="text-xs text-purple-800 font-medium">Verified Zero-Stair ADA Campus Corridor</div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeRoute.googleMapsUrl && (
+                <a
+                  href={activeRoute.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-lg shadow-sm transition-transform hover:scale-105 active:scale-95"
+                  title="Open this route in Google Maps navigation"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open in Google Maps</span>
+                </a>
+              )}
+
               <button
                 onClick={speakInstructions}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
@@ -748,6 +785,38 @@ export function RoutePlanner({
               </button>
             </div>
           </div>
+
+          {/* Dedicated Google Maps Launch Banner */}
+          {activeRoute.googleMapsUrl && (
+            <div className="p-3.5 bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-950 text-white rounded-xl shadow-sm border border-blue-400/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-500 text-white flex items-center justify-center font-bold text-base shrink-0 shadow-inner">
+                  📍
+                </div>
+                <div>
+                  <div className="font-extrabold text-xs sm:text-sm text-white flex items-center gap-1.5">
+                    <span>Google Maps Pedestrian Navigation</span>
+                    <span className="text-[10px] px-1.5 py-0.2 bg-blue-400/30 text-blue-200 rounded font-semibold">
+                      Live Pathway
+                    </span>
+                  </div>
+                  <div className="text-blue-200 text-[11px]">
+                    Opens the exact walking path with turn-by-turn spoken guidance in Google Maps.
+                  </div>
+                </div>
+              </div>
+
+              <a
+                href={activeRoute.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white font-extrabold text-xs rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 hover:scale-105 active:scale-95 shrink-0"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Open Route via Google Maps</span>
+              </a>
+            </div>
+          )}
 
           {/* Stats Bar */}
           <div className="grid grid-cols-3 gap-2 text-center">

@@ -12,9 +12,9 @@ interface PolylineOverlayProps {
 
 export function PolylineOverlay({
   path,
-  strokeColor = '#4f46e5',
-  strokeWeight = 5,
-  strokeOpacity = 0.85,
+  strokeColor = '#2563eb',
+  strokeWeight = 6,
+  strokeOpacity = 0.9,
   isDashed = false,
 }: PolylineOverlayProps) {
   const map = useMap();
@@ -23,6 +23,15 @@ export function PolylineOverlay({
 
   useEffect(() => {
     if (!map || !mapsLib || path.length === 0) return;
+
+    // Google Maps casing polyline (outer border for high accessibility contrast)
+    const casingLine = new mapsLib.Polyline({
+      path,
+      strokeColor: '#ffffff',
+      strokeOpacity: 0.95,
+      strokeWeight: strokeWeight + 3,
+      map,
+    });
 
     const line = new mapsLib.Polyline({
       path,
@@ -48,7 +57,19 @@ export function PolylineOverlay({
 
     setPolyline(line);
 
+    // Smoothly pan and zoom to fit the calculated pathway
+    if (path.length >= 2 && typeof google !== 'undefined' && google.maps?.LatLngBounds) {
+      try {
+        const bounds = new google.maps.LatLngBounds();
+        path.forEach((pt) => bounds.extend(new google.maps.LatLng(pt.lat, pt.lng)));
+        map.fitBounds(bounds, { top: 80, right: 60, bottom: 80, left: 60 });
+      } catch (e) {
+        console.warn('fitBounds note:', e);
+      }
+    }
+
     return () => {
+      casingLine.setMap(null);
       line.setMap(null);
     };
   }, [map, mapsLib, path, strokeColor, strokeWeight, strokeOpacity, isDashed]);

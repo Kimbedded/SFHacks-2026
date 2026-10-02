@@ -267,19 +267,19 @@ export function CampusMap({
       {/* Active Route Vector Line connecting origin to destination */}
       {activeRoute && (
         <div className="absolute inset-0 pointer-events-none z-10">
-          <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
             {activeRoute.pathCoordinates && activeRoute.pathCoordinates.length >= 2 && (
               <polyline
                 points={activeRoute.pathCoordinates
                   .map((pt) => {
                     const p = gpsToPercent(pt);
-                    return `${parseFloat(p.left) * 10},${parseFloat(p.top) * 6.2}`;
+                    return `${parseFloat(p.left)},${parseFloat(p.top)}`;
                   })
                   .join(' ')}
                 fill="none"
-                stroke="#f59e0b"
-                strokeWidth="5"
-                strokeDasharray="8 4"
+                stroke="#3b82f6"
+                strokeWidth="1.2"
+                strokeDasharray="2 1"
                 strokeLinecap="round"
                 className="animate-pulse"
               />
@@ -292,6 +292,33 @@ export function CampusMap({
 
   return (
     <div className="relative w-full h-[520px] lg:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900">
+      {/* Floating Active Route Bar with Google Maps Action */}
+      {activeRoute && (
+        <div className="absolute top-14 left-3 z-20 max-w-sm sm:max-w-md bg-slate-950/95 backdrop-blur-md text-white p-2.5 rounded-xl border border-blue-400/40 shadow-xl flex items-center justify-between gap-3 animate-fadeIn">
+          <div className="truncate">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping shrink-0"></span>
+              <span className="font-extrabold text-xs text-white truncate">{activeRoute.title}</span>
+            </div>
+            <div className="text-[10px] text-blue-200">
+              {activeRoute.distanceMeters}m • ~{activeRoute.estimatedMinutes} mins • {activeRoute.pathCoordinates.length} waypoints
+            </div>
+          </div>
+
+          {activeRoute.googleMapsUrl && (
+            <a
+              href={activeRoute.googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1 shrink-0"
+              title="Open full walking directions in Google Maps app"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>Google Maps</span>
+            </a>
+          )}
+        </div>
+      )}
       {/* Map Control Overlay */}
       <div className="absolute top-3 left-3 z-20 bg-white/95 backdrop-blur-md p-2 rounded-xl shadow-lg border border-slate-200 text-xs flex flex-wrap items-center gap-2 max-w-[90%]">
         <span className="font-bold text-slate-800 flex items-center gap-1">

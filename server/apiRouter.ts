@@ -106,6 +106,139 @@ apiRouter.post('/suggest-route', async (req: Request, res: Response) => {
   }
 });
 
+// Helper to decode Google Maps polyline string into coordinates
+function decodeGooglePolyline(encoded: string): Array<{ lat: number; lng: number }> {
+  const points: Array<{ lat: number; lng: number }> = [];
+  let index = 0;
+  const len = encoded.length;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < len) {
+    let b: number;
+    let shift = 0;
+    let result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
+    lng += dlng;
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+
+  return points;
+}
+
+// 2b. Google Maps Walking Directions API proxy
+apiRouter.post('/directions', async (req: Request, res: Response) => {
+  try {
+    const { origin, destination } = req.body;
+    if (!origin || !destination) {
+      return res.status(400).json({ success: false, error: 'origin and destination coordinates required' });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=walking`;
+
+    if (!apiKey) {
+      return res.json({
+        success: true,
+        pathCoordinates: [origin, destination],
+        distanceMeters: 350,
+        estimatedMinutes: 5,
+        googleMapsUrl,
+        source: 'direct_fallback',
+      });
+    }
+
+    const apiUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=walking&key=${apiKey}`;
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+
+    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+      const route = data.routes[0];
+      const leg = route.legs[0];
+      const pathCoordinates = decodeGooglePolyline(route.overview_polyline.points);
+
+      const steps = (leg.steps || []).map((step: any) => ({
+        instruction: step.html_instructions ? step.html_instructions.replace(/<[^>]*>/g, '') : 'Walk along path',
+        distance: step.distance?.text || '',
+        duration: step.duration?.text || '',
+        coordinates: {
+          lat: step.start_location.lat,
+          lng: step.start_location.lng,
+        },
+      }));
+
+      return res.json({
+        success: true,
+        pathCoordinates,
+        distanceMeters: leg.distance?.value || 350,
+        estimatedMinutes: Math.ceil((leg.duration?.value || 300) / 60),
+        steps,
+        googleMapsUrl,
+        source: 'google_maps_directions_api',
+      });
+    }
+
+    // Fallback: route along real SFSU campus pedestrian walkway network
+    const CAMPUS_HUBS = [
+      { name: '19th & Holloway Walkway', lat: 37.7234, lng: -122.4755 },
+      { name: 'Holloway Ave North Sidewalk', lat: 37.7235, lng: -122.4770 },
+      { name: 'Malcolm X Plaza Hub', lat: 37.7239, lng: -122.4782 },
+      { name: 'North Quad Walkway', lat: 37.7245, lng: -122.4792 },
+      { name: 'Tapia Drive ADA Corridor', lat: 37.7228, lng: -122.4775 },
+    ];
+
+    // Find the closest walkway hub to origin and destination
+    function dist(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) {
+      return Math.hypot(p1.lat - p2.lat, p1.lng - p2.lng);
+    }
+
+    const startHub = CAMPUS_HUBS.reduce((prev, curr) => dist(origin, curr) < dist(origin, prev) ? curr : prev, CAMPUS_HUBS[0]);
+    const endHub = CAMPUS_HUBS.reduce((prev, curr) => dist(destination, curr) < dist(destination, prev) ? curr : prev, CAMPUS_HUBS[1]);
+
+    const fallbackPoints: Array<{ lat: number; lng: number }> = [
+      origin,
+      { lat: origin.lat, lng: startHub.lng },
+      startHub,
+    ];
+
+    if (startHub !== endHub) {
+      fallbackPoints.push({ lat: (startHub.lat + endHub.lat) / 2, lng: (startHub.lng + endHub.lng) / 2 });
+      fallbackPoints.push(endHub);
+    }
+
+    fallbackPoints.push({ lat: destination.lat, lng: endHub.lng });
+    fallbackPoints.push(destination);
+
+    return res.json({
+      success: true,
+      pathCoordinates: fallbackPoints,
+      distanceMeters: Math.round(dist(origin, destination) * 111000 * 1.3),
+      estimatedMinutes: Math.max(3, Math.round((dist(origin, destination) * 111000 * 1.3) / 75)),
+      googleMapsUrl,
+      source: 'campus_pedestrian_network_fallback',
+    });
+  } catch (error: any) {
+    console.error('Error fetching Google Directions:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // 3. Get All Accessibility Reports
 apiRouter.get('/reports', (_req: Request, res: Response) => {
   res.json({
