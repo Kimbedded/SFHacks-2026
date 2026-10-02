@@ -14,8 +14,8 @@ import {
   FaCamera,
   FaUser,
   FaRightFromBracket,
-} from 'react-icons/fa6';
 import { AppUser } from './LoginPage';
+import { GatorAppIcon } from './GatorAppIcon';
 
 interface HeaderProps {
   activeTab: 'map' | 'report' | 'elevators' | 'support';
@@ -97,8 +97,8 @@ export function Header({
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
         {/* Brand */}
         <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('map')}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 font-black flex items-center justify-center shadow-md border-2 border-amber-300">
-            <FaWheelchair className="w-5 h-5 text-purple-950" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl overflow-hidden shadow-md transition-transform hover:scale-105 active:scale-95">
+            <GatorAppIcon className="w-full h-full" />
           </div>
           <div>
             <div className="flex items-center gap-2">

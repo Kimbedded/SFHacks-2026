@@ -18,6 +18,7 @@ import { ElevatorStatusDashboard } from './components/ElevatorStatusDashboard';
 import { GatorMobilityView } from './components/GatorMobilityView';
 import { HotlineModal } from './components/HotlineModal';
 import { GeminiVoiceWidget } from './components/GeminiVoiceWidget';
+import { GatorAppIcon } from './components/GatorAppIcon';
 import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
 import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
 import { LoginPage, AppUser } from './components/LoginPage';
@@ -471,7 +472,9 @@ export default function App() {
         <footer className="bg-slate-900 text-slate-400 py-6 px-4 border-t border-slate-800 text-xs">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3">
-              <span className="text-xl">♿</span>
+              <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 shadow">
+                <GatorAppIcon className="w-full h-full" />
+              </div>
               <div>
                 <div className="font-bold text-white">GatorAccess • San Francisco State University</div>
                 <div className="text-[11px] text-slate-400">
