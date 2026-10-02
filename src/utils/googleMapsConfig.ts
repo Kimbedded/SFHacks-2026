@@ -28,12 +28,14 @@ export interface GoogleMapsErrorInfo {
  * Supports GOOGLE_MAPS_API_KEY as primary, with VITE_GOOGLE_MAPS_API_KEY as fallback.
  * Never logs or reveals the raw key.
  */
+const PROVISIONED_MAPS_KEY = 'AIzaSyAiOp12oNscvm63kc-pAGM0RS03XTd10qs';
+
 export function getGoogleMapsApiKey(): string {
   const raw =
     (typeof import.meta !== 'undefined' &&
       (import.meta.env?.GOOGLE_MAPS_API_KEY || import.meta.env?.VITE_GOOGLE_MAPS_API_KEY)) ||
-    '';
-  return typeof raw === 'string' ? raw.trim() : '';
+    PROVISIONED_MAPS_KEY;
+  return typeof raw === 'string' ? raw.trim() : PROVISIONED_MAPS_KEY;
 }
 
 /**

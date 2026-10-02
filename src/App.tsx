@@ -407,7 +407,7 @@ export default function App() {
 
   if (hasKey && !mapsError) {
     return (
-      <APIProvider apiKey={apiKey} libraries={['places', 'routes', 'geometry']}>
+      <APIProvider apiKey={apiKey} libraries={['places', 'geometry', 'marker']}>
         {appContent}
       </APIProvider>
     );
