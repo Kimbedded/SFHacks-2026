@@ -457,25 +457,15 @@ export function GlobalVoiceAgent({
             </div>
           </div>
 
-          {/* Microphone Permission Warning / Notice if blocked in iframe */}
+          {/* Microphone Notice when in preview */}
           {microphoneError && (
             <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="flex-1">
                 <p className="font-semibold leading-tight">{microphoneError}</p>
-                <div className="mt-1.5 flex items-center justify-between gap-2">
-                  <span className="text-[10px] text-amber-800">
-                    Or tap any preset phrase below to test live!
-                  </span>
-                  <a
-                    href={typeof window !== 'undefined' ? window.location.href : '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] font-bold text-purple-700 hover:text-purple-900 bg-purple-100 hover:bg-purple-200 px-2 py-0.5 rounded transition-colors shrink-0"
-                  >
-                    ↗ Open in Full Tab
-                  </a>
-                </div>
+                <p className="text-[10px] text-amber-800 mt-1">
+                  Tip: Use the pop-out icon at the top of AI Studio, or tap any preset prompt below to test live hands-free transcription!
+                </p>
               </div>
             </div>
           )}
