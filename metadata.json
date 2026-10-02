@@ -1,0 +1,8 @@
+{
+  "name": "SFHacks 2026 - SFPulse Civic Intelligence",
+  "description": "SF Hacks 2026 flagship platform: real-time urban sensing, multi-head AI incident classifier, IoT edge telemetry, and climate action simulator for San Francisco.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
