@@ -27,11 +27,12 @@ import {
   FaArrowRight,
   FaChevronLeft,
   FaChevronRight,
+  FaChevronUp,
+  FaChevronDown,
   FaPersonWalking,
   FaBuilding,
   FaShieldHalved,
   FaPhone,
-  FaExpand,
 } from 'react-icons/fa6';
 import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl } from '../utils/googleDirections';
 import { UnifiedRouteModal } from './UnifiedRouteModal';
@@ -222,11 +223,11 @@ export function RoutePlanner({
   });
 
   // Carousel Scroll Navigation
-  const scrollCorridorCarousel = (direction: 'left' | 'right') => {
+  const scrollCorridorCarousel = (direction: 'up' | 'down') => {
     if (!corridorCarouselRef.current) return;
-    const scrollAmount = 320;
+    const scrollAmount = 280;
     corridorCarouselRef.current.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      top: direction === 'up' ? -scrollAmount : scrollAmount,
       behavior: 'smooth',
     });
   };
@@ -482,13 +483,13 @@ export function RoutePlanner({
       </div>
 
       {/* ========================================================================= */}
-      <div className={viewMode === 'corridor_active' && activeRoute ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-6 items-start' : 'space-y-6'}>
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 xl:gap-6 items-start">
         <div className="min-w-0">
       {/* 2. MODE A: CORRIDORS CAROUSEL VIEW (WHEN BROWSING CAMPUS DESTINATIONS)   */}
       {/* ========================================================================= */}
       {viewMode === 'carousel' && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-amber-400 text-purple-950 flex items-center justify-center font-bold text-xs shadow-xs">
@@ -518,18 +519,18 @@ export function RoutePlanner({
 
               <div className="flex items-center gap-1">
                 <button
-                  onClick={() => scrollCorridorCarousel('left')}
+                  onClick={() => scrollCorridorCarousel('up')}
                   className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 flex items-center justify-center transition-colors border border-slate-200 cursor-pointer shadow-2xs"
                   title="Previous corridors"
                 >
-                  <FaChevronLeft className="w-3 h-3" />
+                  <FaChevronUp className="w-3 h-3" />
                 </button>
                 <button
-                  onClick={() => scrollCorridorCarousel('right')}
+                  onClick={() => scrollCorridorCarousel('down')}
                   className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 flex items-center justify-center transition-colors border border-slate-200 cursor-pointer shadow-2xs"
                   title="Next corridors"
                 >
-                  <FaChevronRight className="w-3 h-3" />
+                  <FaChevronDown className="w-3 h-3" />
                 </button>
               </div>
             </div>
@@ -538,7 +539,7 @@ export function RoutePlanner({
           {/* Carousel Track */}
           <div
             ref={corridorCarouselRef}
-            className="flex items-stretch gap-3.5 overflow-x-auto pb-3 pt-1 scroll-smooth snap-x snap-mandatory no-scrollbar"
+            className="flex flex-col gap-3.5 max-h-[560px] overflow-y-auto p-1 scroll-smooth snap-y snap-mandatory"
           >
             {filteredCorridors.map((corridor, idx) => {
               const bldg = buildings.find((b) => b.id === corridor.destinationBuildingId);
@@ -549,8 +550,23 @@ export function RoutePlanner({
                 <div
                   key={corridor.id}
                   onClick={() => handleSelectCorridor(corridor, false, true)}
-                  className="w-[280px] sm:w-[320px] shrink-0 snap-start bg-gradient-to-b from-white to-slate-50/80 rounded-2xl border-2 border-slate-200 hover:border-purple-500 hover:shadow-xl p-4 flex flex-col justify-between space-y-3 transition-all duration-200 hover:-translate-y-1 cursor-pointer group"
+                  className="w-full shrink-0 snap-start bg-gradient-to-b from-white to-slate-50/80 rounded-2xl border-2 border-slate-200 hover:border-purple-500 hover:shadow-xl flex flex-row overflow-hidden transition-all duration-200 hover:-translate-y-1 cursor-pointer group"
                 >
+                  {/* Location Photo */}
+                  <div className="w-28 sm:w-36 shrink-0 self-stretch overflow-hidden bg-gradient-to-br from-purple-900 to-indigo-950 flex items-center justify-center">
+                    {corridor.photoUrl ? (
+                      <img
+                        src={corridor.photoUrl}
+                        alt={`${corridor.destinationName} at SFSU`}
+                        loading="lazy"
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <FaBuilding className="w-10 h-10 text-purple-300/60" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 p-4 flex flex-col justify-between space-y-3">
                   {/* Top Badges */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between gap-1">
@@ -612,18 +628,7 @@ export function RoutePlanner({
                       <FaArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectCorridor(corridor, true, false);
-                      }}
-                      className="py-2.5 px-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-bold text-xs flex items-center justify-center gap-1 border border-purple-200 transition-colors cursor-pointer shrink-0"
-                      title="View map and turn-by-turn route together in one single modal"
-                    >
-                      <FaExpand className="w-3 h-3 text-purple-700" />
-                      <span>Single Modal</span>
-                    </button>
+                  </div>
                   </div>
                 </div>
               );
@@ -636,9 +641,9 @@ export function RoutePlanner({
       {/* 3. MODE B: DIRECT ACCESSIBLE CAMPUS CORRIDOR WITH TURN-BY-TURN WAYPOINTS  */}
       {/* ========================================================================= */}
       {viewMode === 'corridor_active' && activeRoute && (
-        <div className="min-w-0 lg:max-h-[650px] lg:overflow-y-auto bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5 space-y-4 animate-fadeIn">
+        <div className="min-w-0 md:max-h-[650px] md:overflow-y-auto bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5 space-y-4 animate-fadeIn">
           {/* Top Bar with Return button & Corridor Title */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-100">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-purple-100">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <button
@@ -709,14 +714,6 @@ export function RoutePlanner({
                 <span>Gator Cart</span>
               </button>
 
-              <button
-                onClick={() => setIsUnifiedModalOpen(true)}
-                className="px-3.5 py-2 bg-gradient-to-r from-purple-800 to-indigo-900 hover:from-purple-700 hover:to-indigo-800 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95 cursor-pointer border border-purple-400/40"
-                title="View map and turn-by-turn route together in one single modal"
-              >
-                <FaExpand className="w-3.5 h-3.5 text-amber-300" />
-                <span>Single Modal View</span>
-              </button>
             </div>
           </div>
 
@@ -729,7 +726,7 @@ export function RoutePlanner({
           )}
 
           {/* Corridor Waypoints Carousel Header */}
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-lg bg-purple-800 text-white flex items-center justify-center font-bold text-xs">
                 <FaCompass className="w-3.5 h-3.5" />

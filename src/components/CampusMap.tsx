@@ -28,7 +28,6 @@ import {
   FaCircleCheck,
   FaCircleXmark,
   FaCar,
-  FaExpand,
   FaLocationDot,
 } from 'react-icons/fa6';
 
@@ -520,7 +519,7 @@ export function CampusMap({
     <div
       className={
         containerClassName ||
-        'relative w-full h-[520px] lg:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900'
+        'relative w-full h-[520px] md:h-[620px] rounded-2xl overflow-hidden shadow-xl border border-slate-200 bg-slate-900'
       }
     >
       {/* Floating Active Route Bar with Google Maps Action */}
@@ -536,18 +535,6 @@ export function CampusMap({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {onOpenSingleModal && (
-              <button
-                type="button"
-                onClick={onOpenSingleModal}
-                className="px-2.5 py-1.5 bg-gradient-to-r from-purple-800 to-indigo-900 hover:from-purple-700 hover:to-indigo-800 text-white font-extrabold text-[11px] rounded-lg shadow transition-transform hover:scale-105 active:scale-95 flex items-center gap-1 cursor-pointer border border-purple-400/40"
-                title="View map and turn-by-turn route together in one single modal"
-              >
-                <FaExpand className="w-2.5 h-2.5 text-amber-300" />
-                <span>Single Modal</span>
-              </button>
-            )}
-
             {activeRoute.googleMapsUrl && (
               <a
                 href={activeRoute.googleMapsUrl}

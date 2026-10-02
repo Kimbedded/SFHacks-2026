@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { signInWithPopup, User } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase/config';
-import { FaWheelchair, FaLock, FaEnvelope, FaEye, FaEyeSlash, FaShieldHalved, FaGraduationCap, FaArrowRight } from 'react-icons/fa6';
+import { FaLock, FaEnvelope, FaEye, FaEyeSlash, FaShieldHalved, FaGraduationCap, FaArrowRight } from 'react-icons/fa6';
+import { GatorAppIcon } from './GatorAppIcon';
 
 export interface AppUser {
   uid: string;
@@ -133,8 +134,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <header className="bg-[#231161] text-white border-b-4 border-[#eaaa00] shadow-md">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-[#eaaa00] text-[#231161] flex items-center justify-center font-black shadow-sm">
-              <FaWheelchair className="w-6 h-6 text-[#231161]" />
+            <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden shadow-sm">
+              <GatorAppIcon className="w-full h-full" />
             </div>
             <div>
               <div className="font-extrabold text-lg tracking-tight leading-tight">

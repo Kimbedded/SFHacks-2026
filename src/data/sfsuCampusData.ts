@@ -703,6 +703,8 @@ export interface CampusCorridorWaypoint {
 
 export interface AccessibleCorridorItem {
   id: string;
+  /** Real photo of the destination (Wikimedia Commons, bundled in public/locations) */
+  photoUrl?: string;
   title: string;
   subtitle: string;
   category: string;
@@ -726,6 +728,7 @@ export interface AccessibleCorridorItem {
 export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   {
     id: 'corridor-dprc-ccsc',
+    photoUrl: '/locations/ccsc.jpg',
     title: 'DPRC & Student Center',
     subtitle: 'Direct zero-stair corridor to Disability Programs & Resource Center',
     category: 'Student Services',
@@ -785,6 +788,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-library',
+    photoUrl: '/locations/library.jpg',
     title: 'J. Paul Leonard Library',
     subtitle: 'Malcolm X Plaza gateway to research commons & assistive tech lab',
     category: 'Academic Commons',
@@ -842,6 +846,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-science-thornton',
+    photoUrl: '/locations/thornton.jpg',
     title: 'Science Quad & Thornton Hall',
     subtitle: 'Direct ramp connection to STEM research laboratories & CS labs',
     category: 'STEM & Labs',
@@ -898,6 +903,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-mashouf',
+    photoUrl: '/locations/mashouf.jpg',
     title: 'Mashouf Wellness Center',
     subtitle: 'Adaptive fitness, zero-entry heated pool & track accessibility',
     category: 'Athletics & Wellness',
@@ -954,6 +960,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-health-caps',
+    photoUrl: '/locations/health.jpg',
     title: 'Student Health & CAPS',
     subtitle: 'Confidential mental health counseling, urgent crisis support & clinic',
     category: 'Health & Support',
@@ -1012,6 +1019,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-finearts-humanities',
+    photoUrl: '/locations/fine-arts.jpg',
     title: 'Fine Arts & Humanities',
     subtitle: 'Gallery courtyard, creative studios & speech hearing clinic corridor',
     category: 'Creative Arts',
@@ -1124,6 +1132,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-lot20-bridge',
+    photoUrl: '/locations/quad.jpg',
     title: 'Lot 20 ADA Garage to Quad',
     subtitle: 'Direct covered pedestrian bridge connecting ADA parking to Main Quad',
     category: 'Parking & Transit',

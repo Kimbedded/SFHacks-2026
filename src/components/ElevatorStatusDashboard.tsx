@@ -43,8 +43,8 @@ export function ElevatorStatusDashboard({
   onRequestRide,
 }: ElevatorStatusDashboardProps) {
   const [activeSubTab, setActiveSubTab] = useState<'elevators' | 'facilities'>('elevators');
-  const [filter, setFilter] = useState<'all' | 'down' | 'operational'>('all');
-  const [facilityFilter, setFacilityFilter] = useState<'all' | 'active' | 'resolved'>('all');
+  const [filter, setFilter] = useState<'all' | 'down' | 'operational'>('down');
+  const [facilityFilter, setFacilityFilter] = useState<'all' | 'active' | 'resolved'>('active');
   const [searchQuery, setSearchQuery] = useState('');
   
   // Real-time Firebase state
@@ -105,33 +105,37 @@ export function ElevatorStatusDashboard({
     })
   );
 
-  const filteredElevators = allElevators.filter((e) => {
-    if (filter === 'down') return e.status === 'down';
-    if (filter === 'operational') return e.status === 'operational';
-    if (searchQuery) {
-      return (
-        e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        e.buildingCode.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    return true;
-  });
-
-  const filteredFacilities = facilitiesTickets.filter((f) => {
-    if (facilityFilter === 'active') return f.status !== 'resolved';
-    if (facilityFilter === 'resolved') return f.status === 'resolved';
-    if (searchQuery) {
-      return (
-        f.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.facilityType.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-    return true;
-  });
-
+  const query = searchQuery.trim().toLowerCase();
+  const isActiveTicket = (ticket: FirebaseFacilityTicket) =>
+    ticket.status !== 'resolved' && ticket.status !== 'operational';
+  const priorityRank = { urgent_accessibility: 0, high: 1, medium: 2, low: 3 };
+  const filteredElevators = allElevators.filter((e) =>
+    (filter === 'all' || (filter === 'down' ? e.status === 'down' : e.status === 'operational')) &&
+    [e.name, e.buildingName, e.buildingCode].some((value) => value.toLowerCase().includes(query))
+  ).sort((a, b) => Number(a.status === 'operational') - Number(b.status === 'operational') || a.buildingName.localeCompare(b.buildingName));
+  const filteredFacilities = facilitiesTickets.filter((ticket) =>
+    (facilityFilter === 'all' || (facilityFilter === 'active' ? isActiveTicket(ticket) : !isActiveTicket(ticket))) &&
+    [ticket.title, ticket.buildingName, ticket.facilityType.replace(/_/g, ' ')].some((value) => value.toLowerCase().includes(query))
+  ).sort((a, b) => Number(!isActiveTicket(a)) - Number(!isActiveTicket(b)) || priorityRank[a.priority] - priorityRank[b.priority] || (b.upvotes || 0) - (a.upvotes || 0));
+  const facilityCategories: { type: FirebaseFacilityTicket['facilityType']; label: string }[] = [
+    { type: 'power_door', label: 'Automatic doors' },
+    { type: 'elevator', label: 'Elevators' },
+    { type: 'lift', label: 'Wheelchair lifts' },
+    { type: 'ramp', label: 'Ramps & handrails' },
+    { type: 'accessible_restroom', label: 'Accessible restrooms' },
+    { type: 'braille_beacon', label: 'Wayfinding & tactile aids' },
+  ];
+  const facilityGroups = facilityCategories.map((category) => ({
+    ...category, tickets: filteredFacilities.filter((ticket) => ticket.facilityType === category.type),
+  })).filter((group) => group.tickets.length > 0).sort((a, b) =>
+    Number(!isActiveTicket(a.tickets[0])) - Number(!isActiveTicket(b.tickets[0])) ||
+    priorityRank[a.tickets[0].priority] - priorityRank[b.tickets[0].priority]
+  );
   const brokenCount = allElevators.filter((e) => e.status !== 'operational').length;
+  const activeRepairCount = facilitiesTickets.filter(isActiveTicket).length;
+  const activeReports = reports.filter((report) => report.status !== 'resolved').sort((a, b) =>
+    ({ critical: 0, high: 1, medium: 2, low: 3 }[a.urgency] - { critical: 0, high: 1, medium: 2, low: 3 }[b.urgency]) || b.upvotes - a.upvotes
+  );
 
   const handleToggleFbElevator = async (elevatorId: string, currentStatus: string) => {
     const isNowOperational = currentStatus !== 'operational';
@@ -190,11 +194,11 @@ export function ElevatorStatusDashboard({
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
             <h2 className="text-xl font-extrabold tracking-tight text-white">
-              Elevators & facilities
+              Facilities status
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-purple-200">
-            Status of {allElevators.length} campus elevators and facilities work orders.
+            {brokenCount} elevator outages · {activeRepairCount} active repairs. Access issues appear first.
           </p>
         </div>
 
@@ -215,7 +219,7 @@ export function ElevatorStatusDashboard({
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div className="flex border-b border-slate-200 bg-white rounded-t-2xl p-2 gap-2 shadow-sm">
+      <div className="flex flex-wrap border-b border-slate-200 bg-white rounded-t-2xl p-2 gap-2 shadow-sm">
         <button
           onClick={() => setActiveSubTab('elevators')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all ${
@@ -225,7 +229,7 @@ export function ElevatorStatusDashboard({
           }`}
         >
           <FaElevator className="w-4 h-4 text-amber-300" />
-          <span>SFSU Elevator Fleet ({allElevators.length})</span>
+          <span>Elevators · {brokenCount} outages</span>
         </button>
 
         <button
@@ -237,7 +241,7 @@ export function ElevatorStatusDashboard({
           }`}
         >
           <FaWrench className="w-3.5 h-3.5 text-amber-400" />
-          <span>Facilities Work Orders ({facilitiesTickets.length})</span>
+          <span>Other facilities · {activeRepairCount} repairs</span>
         </button>
       </div>
 
@@ -247,22 +251,23 @@ export function ElevatorStatusDashboard({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-base text-slate-900">SFSU Elevator Health Matrix</h3>
+                <h3 className="font-extrabold text-base text-slate-900">{filter === 'down' ? 'Elevator outages' : filter === 'operational' ? 'Working elevators' : 'All elevators'}</h3>
               </div>
               <p className="text-xs text-slate-500">
-                Click "Simulate Outage" to toggle an elevator; updates propagate to all connected student devices via Firebase.
+                Check affected buildings and alternative routes before you travel.
               </p>
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <FaMagnifyingGlass className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search elevator..."
+                  aria-label="Search elevators"
+                  placeholder="Search building or elevator"
                   className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none"
                 />
               </div>
@@ -296,6 +301,7 @@ export function ElevatorStatusDashboard({
             </div>
           </div>
 
+          {filteredElevators.length === 0 && <p className="p-6 text-center text-sm text-slate-500">{searchQuery ? 'No elevators match your search.' : filter === 'down' ? 'No elevator outages reported.' : 'No elevators in this category.'}</p>}
           {/* Elevators Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredElevators.map((elev) => {
@@ -326,10 +332,11 @@ export function ElevatorStatusDashboard({
                           : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       }`}
                     >
-                      {elev.status}
+                      {isDown ? 'Out of service' : 'Operational'}
                     </span>
                   </div>
 
+                  {isDown && elev.statusReason && <p className="mt-3 text-xs font-medium text-rose-800">{elev.statusReason}</p>}
                   <div className="my-2.5 pt-2 border-t border-slate-100 text-xs space-y-1">
                     <div className="text-slate-600">
                       <span className="font-semibold text-slate-700">Floors: </span>
@@ -340,7 +347,7 @@ export function ElevatorStatusDashboard({
                       {elev.lastChecked}
                     </div>
 
-                    {elev.alternativePath && (
+                    {isDown && elev.alternativePath && (
                       <div className="p-2 rounded bg-slate-100/70 border border-slate-200 text-[11px] text-slate-700 mt-2">
                         <span className="font-bold text-purple-900">Bypass Route: </span>
                         {elev.alternativePath}
@@ -350,7 +357,7 @@ export function ElevatorStatusDashboard({
 
                   {/* Firebase Mutation Control */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-400 font-mono">Telemetry:</span>
+                    <span className="text-[10px] text-slate-400">Demo status control</span>
                     <button
                       onClick={() => handleToggleFbElevator(elev.id, elev.status)}
                       className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${
@@ -376,24 +383,22 @@ export function ElevatorStatusDashboard({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-base text-slate-900">
-                  SFSU Facilities Services Work Order Feed
+                  Repairs by category
                 </h3>
-                <span className="text-[11px] bg-purple-100 text-purple-800 font-bold px-2 py-0.5 rounded border border-purple-200">
-                  Scalable Firestore Subcollections
-                </span>
+
               </div>
               <p className="text-xs text-slate-500">
-                Track physical repair statuses for power automated push-doors, ramps, and ADA tactile assets.
+                Access-blocking issues first, followed by high, medium, and low priority repairs.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setIsCreatingTicket(!isCreatingTicket)}
                 className="px-3 py-1.5 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
               >
                 <FaPlus className="w-3.5 h-3.5" />
-                <span>Log Facility Work Order</span>
+                <span>Report an issue</span>
               </button>
 
               <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs font-semibold">
@@ -411,11 +416,13 @@ export function ElevatorStatusDashboard({
                     facilityFilter === 'active' ? 'bg-amber-600 text-white' : 'text-slate-600'
                   }`}
                 >
-                  Active Repairs
+                  Active ({activeRepairCount})
                 </button>
+                <button onClick={() => setFacilityFilter('resolved')} aria-pressed={facilityFilter === 'resolved'} className={`px-2.5 py-1 rounded-md ${facilityFilter === 'resolved' ? 'bg-emerald-600 text-white' : 'text-slate-600'}`}>Working / resolved</button>
               </div>
             </div>
           </div>
+          <input aria-label="Search facilities" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search building or facility" className="w-full sm:max-w-sm px-3 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50" />
 
           {/* New Ticket Form Modal/Drawer */}
           {isCreatingTicket && (
@@ -426,7 +433,7 @@ export function ElevatorStatusDashboard({
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-sm text-purple-950 flex items-center gap-2">
                   <FaWrench className="w-4 h-4 text-purple-700" />
-                  Dispatch SFSU Facilities Work Order to Firestore
+                  Report a facility issue
                 </h4>
                 <button
                   type="button"
@@ -512,7 +519,7 @@ export function ElevatorStatusDashboard({
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg shadow-md transition-colors disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Submitting to Firestore...' : 'Create Facilities Work Order'}
+                  {isSubmitting ? 'Submitting...' : 'Submit issue'}
                 </button>
               </div>
             </form>
@@ -520,7 +527,11 @@ export function ElevatorStatusDashboard({
 
           {/* Work Orders List */}
           <div className="space-y-3">
-            {filteredFacilities.map((ticket) => (
+            {filteredFacilities.length === 0 && <p className="p-6 text-center text-sm text-slate-500">{searchQuery ? 'No facilities match your search.' : facilityFilter === 'active' ? 'No active facility repairs.' : 'No facilities in this category.'}</p>}
+            {facilityGroups.map((group) => (
+              <section key={group.type} className="space-y-3">
+                <h4 className="text-sm font-bold text-slate-700">{group.label} <span className="text-slate-400">({group.tickets.length})</span></h4>
+                {group.tickets.map((ticket) => (
               <div
                 key={ticket.id}
                 className="p-4 rounded-xl border border-slate-200 bg-white hover:border-purple-300 shadow-sm transition-all"
@@ -543,7 +554,7 @@ export function ElevatorStatusDashboard({
                           : 'bg-blue-100 text-blue-800'
                       }`}
                     >
-                      {ticket.priority.replace('_', ' ')}
+                      {ticket.priority === 'urgent_accessibility' ? 'Blocks access' : `${ticket.priority} priority`}
                     </span>
 
                     <span
@@ -563,7 +574,7 @@ export function ElevatorStatusDashboard({
                 <p className="text-xs text-slate-600 mt-2">{ticket.description}</p>
 
                 <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="font-semibold text-slate-700">📍 {ticket.buildingName}</span>
                     <span>•</span>
                     <span className="capitalize">Category: {ticket.facilityType.replace('_', ' ')}</span>
@@ -580,6 +591,8 @@ export function ElevatorStatusDashboard({
                   </button>
                 </div>
               </div>
+                ))}
+              </section>
             ))}
           </div>
         </div>
@@ -591,14 +604,14 @@ export function ElevatorStatusDashboard({
           <div className="flex items-center gap-2">
             <FaTriangleExclamation className="w-4 h-4 text-amber-600" />
             <h3 className="font-extrabold text-base text-slate-900">
-              Community Verified Campus Barriers ({reports.length})
+              Student-reported barriers ({activeReports.length})
             </h3>
           </div>
-          <span className="text-xs text-slate-500">Auto-prioritized by student upvotes</span>
+          <span className="text-xs text-slate-500">Urgency, then confirmations</span>
         </div>
 
         <div className="space-y-3">
-          {reports.map((rep) => (
+          {activeReports.map((rep) => (
             <div
               key={rep.id}
               className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"

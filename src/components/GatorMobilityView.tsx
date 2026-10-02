@@ -84,7 +84,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
         {/* Left Column: Gator Mobility Shuttle Dispatch */}
         <div className="min-w-0 bg-white rounded-2xl shadow-sm border border-violet-200 border-t-4 border-t-violet-600 p-5 sm:p-6 space-y-5">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
+            <div className="w-10 h-10 shrink-0 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
               <FaCar className="w-5 h-5 text-purple-800" />
             </div>
             <div>
@@ -247,11 +247,11 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
         </div>
 
         {/* Right Column: CAPS Therapy & Safety Escort Services */}
-        <div className="min-w-0 flex flex-col gap-6">
+        <div className="min-w-0 grid grid-cols-1 lg:grid-rows-2 gap-6 items-stretch">
           {/* CAPS Urgent Emotional / Accessibility Support */}
-          <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-blue-200 border-t-4 border-t-blue-600 p-5 sm:p-6 space-y-4">
+          <div className="min-w-0 w-full h-full flex flex-col gap-4 bg-white rounded-2xl shadow-sm border border-blue-200 border-t-4 border-t-blue-600 p-5 sm:p-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center">
                 <FaHeart className="w-5 h-5 text-blue-700" />
               </div>
               <div>
@@ -272,7 +272,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
               </p>
             </div>
 
-            <div className="flex gap-2">
+            <div className="mt-auto flex flex-wrap gap-2">
               <a
                 href="tel:4153382208"
                 className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl text-center shadow-sm flex items-center justify-center gap-1.5 transition-transform active:scale-95"
@@ -292,9 +292,9 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
           </div>
 
           {/* UPD 24/7 Physical Safety Escort */}
-          <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-amber-200 border-t-4 border-t-amber-500 p-5 sm:p-6 space-y-4">
+          <div className="min-w-0 w-full h-full flex flex-col gap-4 bg-white rounded-2xl shadow-sm border border-amber-200 border-t-4 border-t-amber-500 p-5 sm:p-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
                 <FaShieldHalved className="w-5 h-5 text-amber-700" />
               </div>
               <div>
@@ -314,7 +314,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
 
             <a
               href="tel:4153385200"
-              className="w-full py-2.5 px-3 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl text-center shadow-sm flex items-center justify-center gap-1.5 transition-transform active:scale-95"
+              className="mt-auto w-full py-2.5 px-3 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl text-center shadow-sm flex items-center justify-center gap-1.5 transition-transform active:scale-95"
             >
               <FaPhone className="w-3 h-3" />
               <span>Call Safety Escort Dispatch (UPD)</span>
