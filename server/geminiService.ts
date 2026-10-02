@@ -19,6 +19,7 @@ export interface HazardAnalysisInput {
     mimeType: string;
     data: string; // base64
   };
+  sampleType?: string;
 }
 
 export async function analyzeAccessibilityHazard(input: HazardAnalysisInput) {
