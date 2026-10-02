@@ -30,7 +30,10 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_API_KEY =
+  import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
+  import.meta.env.GOOGLE_MAPS_API_KEY ||
+  'AIzaSyDDi2LqAxzS8Pfq-WS-MLIsyoB7cOyKAms';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'map' | 'report' | 'elevators' | 'support'>('map');
@@ -220,7 +223,7 @@ export default function App() {
   };
 
   return (
-    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'routes', 'geometry']}>
+    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'geometry', 'marker']}>
       <div
         className={`min-h-screen flex flex-col font-sans transition-colors ${
           highContrast
