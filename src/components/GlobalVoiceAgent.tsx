@@ -158,39 +158,33 @@ export function GlobalVoiceAgent({
   }, []);
 
   // Audio waveform visualizer using Web Audio API
-  const startAudioVisualizer = async () => {
+  const connectStreamToVisualizer = (stream: MediaStream) => {
     try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        microphoneStreamRef.current = stream;
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = audioCtx;
 
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioContextRef.current = audioCtx;
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 64;
+      analyserRef.current = analyser;
 
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 64;
-        analyserRef.current = analyser;
+      const source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
 
-        const source = audioCtx.createMediaStreamSource(stream);
-        source.connect(analyser);
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-        const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-        const updateLevel = () => {
-          if (!isListeningRef.current) return;
-          analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
-          }
-          const avg = sum / dataArray.length;
-          setAudioLevel(avg);
-          animationFrameRef.current = requestAnimationFrame(updateLevel);
-        };
-        updateLevel();
-      }
+      const updateLevel = () => {
+        if (!isListeningRef.current) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        setAudioLevel(avg);
+        animationFrameRef.current = requestAnimationFrame(updateLevel);
+      };
+      updateLevel();
     } catch {
-      // Audio stream may be blocked in iframe; simulate mild ambient pulse
       startSimulatedWaveform();
     }
   };
@@ -221,7 +215,7 @@ export function GlobalVoiceAgent({
   };
 
   // Toggle listening
-  const toggleListening = () => {
+  const toggleListening = async () => {
     if (isListening) {
       // Stop listening
       isListeningRef.current = false;
@@ -237,15 +231,41 @@ export function GlobalVoiceAgent({
       setMicrophoneError(null);
       setLiveTranscript('');
 
+      let micGranted = false;
+
+      // 1. Explicitly request getUserMedia: triggers browser's native microphone permission prompt
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          microphoneStreamRef.current = stream;
+          micGranted = true;
+          connectStreamToVisualizer(stream);
+        } catch (err: any) {
+          console.warn('getUserMedia prompt error:', err);
+          if (
+            err.name === 'NotAllowedError' ||
+            err.name === 'PermissionDeniedError' ||
+            err.name === 'SecurityError'
+          ) {
+            setMicrophoneError(
+              'Microphone access is restricted by the preview iframe security policy. Open in a full browser tab or tap any preset phrase below to test live speech transcription!'
+            );
+          }
+        }
+      }
+
+      // 2. Start speech recognition engine
       if (recognitionRef.current) {
         try {
           recognitionRef.current.start();
         } catch (e: any) {
           console.warn('SpeechRecognition start error:', e);
-          // If already started or throwing in iframe, handle gracefully
         }
       }
-      startAudioVisualizer();
+
+      if (!micGranted) {
+        startSimulatedWaveform();
+      }
     }
   };
 
@@ -441,11 +461,21 @@ export function GlobalVoiceAgent({
           {microphoneError && (
             <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold leading-tight">{microphoneError}</p>
-                <p className="text-[10px] text-amber-800 mt-1">
-                  Tap any preset phrase below to test hands-free voice transcription immediately!
-                </p>
+                <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-amber-800">
+                    Or tap any preset phrase below to test live!
+                  </span>
+                  <a
+                    href={typeof window !== 'undefined' ? window.location.href : '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-bold text-purple-700 hover:text-purple-900 bg-purple-100 hover:bg-purple-200 px-2 py-0.5 rounded transition-colors shrink-0"
+                  >
+                    ↗ Open in Full Tab
+                  </a>
+                </div>
               </div>
             </div>
           )}

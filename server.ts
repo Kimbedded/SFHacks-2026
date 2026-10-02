@@ -11,6 +11,12 @@ const PORT = Number(process.env.PORT) || 3000;
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
+// Allow microphone and geolocation for accessibility voice agent
+app.use((_req, res, next) => {
+  res.setHeader('Permissions-Policy', 'microphone=*, camera=*, geolocation=*');
+  next();
+});
+
 app.use('/api', apiRouter);
 
 // Serve static build in production
