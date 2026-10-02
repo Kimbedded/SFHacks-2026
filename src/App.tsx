@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Header } from './components/Header';
 import { QuotaBanner } from './components/QuotaBanner';
+import { OfflineCacheBanner } from './components/OfflineCacheBanner';
 import { TransitAlertsBanner } from './components/TransitAlertsBanner';
 import { CampusMap } from './components/CampusMap';
 import { RoutePlanner } from './components/RoutePlanner';
@@ -233,6 +234,9 @@ export default function App() {
       >
         {/* Google Maps Quota Defense Banner (Case A compliant) */}
         <QuotaBanner />
+
+        {/* Offline & Service Worker Cache Status Indicator */}
+        <OfflineCacheBanner />
 
         {/* Visual Alerts Notification Bar if active */}
         {visualAlertsOnly && (

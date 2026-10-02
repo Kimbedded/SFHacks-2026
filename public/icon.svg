@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4c1d95" />
+      <stop offset="50%" stop-color="#311042" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="100" fill="url(#bg)" />
+  <circle cx="256" cy="256" r="220" stroke="url(#gold)" stroke-width="8" fill="none" opacity="0.4" />
+  <!-- International Symbol of Access with Gator flare -->
+  <g fill="url(#gold)" transform="translate(60, 40) scale(0.76)">
+    <!-- Head -->
+    <circle cx="256" cy="110" r="45" />
+    <!-- Torso and Arms -->
+    <path d="M220 180 h72 c15 0 28 12 28 28 v110 c0 15-12 28-28 28 h-20 v120 c0 18-14 32-32 32 s-32-14-32-32 v-120 h-20 c-15 0-28-12-28-28 v-110 c0-16 13-28 32-28z" opacity="0.9" />
+    <!-- Wheelchair arc -->
+    <path d="M170 330 a 110 110 0 1 0 150 100" stroke="url(#gold)" stroke-width="36" stroke-linecap="round" fill="none" />
+    <!-- Radar pulse rings for offline map navigation -->
+    <path d="M370 180 a 60 60 0 0 1 60 60" stroke="#38bdf8" stroke-width="12" stroke-linecap="round" fill="none" opacity="0.8" />
+    <path d="M390 150 a 100 100 0 0 1 100 100" stroke="#38bdf8" stroke-width="12" stroke-linecap="round" fill="none" opacity="0.6" />
+  </g>
+</svg>
