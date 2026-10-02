@@ -281,3 +281,66 @@ Rules:
     };
   }
 }
+
+export async function processVoiceAgentQuery(params: {
+  userQuery: string;
+  context?: {
+    currentBuilding?: string;
+    activeTab?: string;
+    hasBrokenElevators?: boolean;
+  };
+}) {
+  try {
+    const prompt = `
+You are GatorAI Voice, the real-time spoken accessibility and campus navigator companion for San Francisco State University (SFSU).
+The user is speaking to you hands-free or through live voice transcription.
+
+User Voice Query: "${params.userQuery}"
+Campus Context:
+- Current Page/Tab: ${params.context?.activeTab || 'campus-navigator'}
+- Nearby/Selected Building: ${params.context?.currentBuilding || 'Malcolm X Plaza / Central Campus'}
+- Reported Campus Outages: ${params.context?.hasBrokenElevators ? 'Cesar Chavez Student Center North Elevator is reported OUT OF SERVICE.' : 'All campus elevators reported operational.'}
+
+Key SFSU Accessibility Facts:
+1. DPRC (Disability Programs and Resource Center) is in Cesar Chavez Student Center Room 400, phone (415) 405-3580.
+2. Gator Mobility shuttle carts run Mon-Fri 8am-6pm for door-to-door campus transport. Phone: (415) 338-1441.
+3. CAPS 24/7 mental health crisis line is (415) 338-2208, SSB 205.
+4. J. Paul Leonard Library has the Assistive Technology Lab on the 2nd floor with JAWS screen readers, CCTV enlargers, and adjustable-height desks.
+5. Mashouf Wellness Center has a hydraulic pool lift and ramp entrance.
+6. Muni M-Ocean View ramp connection is located at 19th & Holloway Ave.
+
+Guidelines for spoken response:
+- Keep the response concise, clear, and direct (2 to 4 sentences maximum so it speaks comfortably aloud without overwhelming the user).
+- Tone: Warm, empowering, confident, and empathetic.
+- Provide practical navigation advice (e.g. mention elevators, ramps, automatic door buttons, or shuttle availability).
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        systemInstruction:
+          'You are GatorAI Voice, the real-time voice accessibility assistant for SFSU. Keep answers natural, empathetic, and spoken-friendly under 60 words.',
+      },
+    });
+
+    const reply = response.text?.trim() || 'I am here to guide you around SFSU campus safely and without barriers.';
+    return {
+      reply,
+      suggestedAction: reply.toLowerCase().includes('dprc')
+        ? 'DPRC Office • CCSC 400'
+        : reply.toLowerCase().includes('shuttle') || reply.toLowerCase().includes('cart')
+        ? 'Request Gator Cart'
+        : reply.toLowerCase().includes('caps')
+        ? 'CAPS Support • (415) 338-2208'
+        : 'Explore Campus Map',
+    };
+  } catch (err: any) {
+    console.error('Voice agent query error:', err);
+    return {
+      reply: `At SFSU, all main pathways connecting Malcolm X Plaza, the Library, and Cesar Chavez Center feature ADA low-grade ramps under 5% slope. You can also request a free Gator Mobility cart ride!`,
+      suggestedAction: 'Explore Campus Map',
+    };
+  }
+}
+

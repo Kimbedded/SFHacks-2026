@@ -14,6 +14,7 @@ import { SubmitReportView } from './components/SubmitReportView';
 import { ElevatorStatusDashboard } from './components/ElevatorStatusDashboard';
 import { GatorMobilityView } from './components/GatorMobilityView';
 import { HotlineModal } from './components/HotlineModal';
+import { GlobalVoiceAgent } from './components/GlobalVoiceAgent';
 import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
 import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
 import {
@@ -322,6 +323,14 @@ export default function App() {
             setIsHotlineOpen(false);
             setActiveTab('support');
           }}
+        />
+
+        {/* Site-wide Global Hover Voice AI Agent */}
+        <GlobalVoiceAgent
+          activeTab={activeTab}
+          onNavigateTab={(tab) => setActiveTab(tab as any)}
+          onRequestGatorCart={() => setActiveTab('support')}
+          onOpenHotline={() => setIsHotlineOpen(true)}
         />
 
         {/* Global Footer */}

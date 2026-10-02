@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { analyzeAccessibilityHazard, planAccessibleRouteAI } from './geminiService';
+import { analyzeAccessibilityHazard, planAccessibleRouteAI, processVoiceAgentQuery } from './geminiService';
 import { INITIAL_REPORTS, SFSU_BUILDINGS, TRANSIT_ALERTS } from '../src/data/sfsuCampusData';
 import { AccessibilityReport, AssistanceRequest } from '../src/types';
 
@@ -292,6 +292,30 @@ apiRouter.get('/export-archive', (_req: Request, res: Response) => {
     execSync(`tar --exclude='node_modules' --exclude='.gmp_cache' --exclude='dist' -czf ${archivePath} -C . .`);
     res.download(archivePath, 'gatoraccess-sfhacks-2026.tar.gz');
   } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12. Site-wide Voice AI Agent (Gemini Spoken Accessibility Guide)
+apiRouter.post('/voice-agent', async (req: Request, res: Response) => {
+  try {
+    const { query, context } = req.body;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ success: false, error: 'Query text is required' });
+    }
+
+    const result = await processVoiceAgentQuery({
+      userQuery: query,
+      context,
+    });
+
+    res.json({
+      success: true,
+      reply: result.reply,
+      suggestedAction: result.suggestedAction,
+    });
+  } catch (err: any) {
+    console.error('Error handling voice agent request:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
