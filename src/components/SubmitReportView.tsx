@@ -2455,13 +2455,6 @@ export function SubmitReportView({
               </div>
             </div>
 
-            {/* Disclaimer Warning */}
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 flex items-start gap-2">
-              <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <p className="italic font-medium">
-                Gemini’s analysis is an assistive tool only and does not provide an official ADA determination. Always verify conditions on site.
-              </p>
-            </div>
           </div>
 
           {/* Suggested Location from photo sign (if detected by Gemini) */}
@@ -2779,9 +2772,6 @@ export function SubmitReportView({
             </a>
           </div>
 
-          <div className="text-[11px] text-slate-400 max-w-md mx-auto pt-2">
-            ⚠️ Notice: Neither GatorAccess AI nor Google Maps provides an official ADA determination. All alternative routes must be verified on site.
-          </div>
         </div>
       )}
     </div>

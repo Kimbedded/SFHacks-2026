@@ -6,8 +6,10 @@ import {
   transcribeAudioWithGemini,
   processGeminiVoiceQuery 
 } from './geminiService';
-import { INITIAL_REPORTS, SFSU_BUILDINGS, TRANSIT_ALERTS } from '../src/data/sfsuCampusData';
+import { INITIAL_REPORTS, SFSU_BUILDINGS } from '../src/data/sfsuCampusData';
 import { AccessibilityReport, AssistanceRequest } from '../src/types';
+
+import { readBartTransit } from './bartTransitService';
 
 export const apiRouter = Router();
 
@@ -395,11 +397,12 @@ apiRouter.post('/assistance-request', (req: Request, res: Response) => {
 });
 
 // 10. Transit Alerts
-apiRouter.get('/transit-alerts', (_req: Request, res: Response) => {
-  res.json({
-    success: true,
-    alerts: TRANSIT_ALERTS,
-  });
+apiRouter.get('/transit-alerts', async (_req: Request, res: Response) => {
+  try {
+    res.json({ success: true, ...await readBartTransit() });
+  } catch {
+    res.status(503).json({ success: false, error: 'Transit data unavailable from Firestore' });
+  }
 });
 
 // 11. Export Project Archive (.tar.gz) for easy local download

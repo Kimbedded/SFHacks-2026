@@ -80,6 +80,12 @@ service cloud.firestore {
       }
     }
 
+    // BART snapshots are written only by the backend Admin SDK.
+    match /transitFeeds/{feedId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Connection testing doc
     match /test/connection {
       allow read: if true;

@@ -2,11 +2,13 @@ import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import { apiRouter } from './server/apiRouter';
+import { startBartTransitSync } from './server/bartTransitService';
 
 dotenv.config();
 
 async function startServer() {
   const app = express();
+  startBartTransitSync();
   const PORT = Number(process.env.PORT) || 3000;
 
   // Body parsers first
