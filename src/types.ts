@@ -54,6 +54,7 @@ export interface CampusBuilding {
   id: string;
   name: string;
   code: string;
+  address?: string;
   coordinates: Coordinates;
   accessibleEntrances: {
     description: string;

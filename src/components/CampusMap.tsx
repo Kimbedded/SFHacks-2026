@@ -29,6 +29,8 @@ interface CampusMapProps {
   buildings: CampusBuilding[];
   reports: AccessibilityReport[];
   activeRoute: AccessibleRouteOption | null;
+  selectedWaypointIndex?: number | null;
+  onSelectWaypoint?: (index: number) => void;
   onSelectBuildingForRoute: (building: CampusBuilding, asOrigin: boolean) => void;
   onReportAtLocation: (locationName: string, coords: Coordinates, buildingId?: string) => void;
 }
@@ -87,12 +89,18 @@ export function CampusMap({
   buildings,
   reports,
   activeRoute,
+  selectedWaypointIndex = 0,
+  onSelectWaypoint,
   onSelectBuildingForRoute,
   onReportAtLocation,
 }: CampusMapProps) {
   const [selectedBuilding, setSelectedBuilding] = useState<CampusBuilding | null>(null);
   const [selectedReport, setSelectedReport] = useState<AccessibilityReport | null>(null);
   const [selectedParking, setSelectedParking] = useState<AccessibleParkingLocation | null>(null);
+  const [selectedWaypointPopup, setSelectedWaypointPopup] = useState<{
+    index: number;
+    step: any;
+  } | null>(null);
 
   // Layer Toggles
   const [showElevators, setShowElevators] = useState(true);
@@ -323,6 +331,44 @@ export function CampusMap({
           </svg>
         </div>
       )}
+
+      {/* Active Route Waypoints Overlaid on Radar Map */}
+      {activeRoute &&
+        activeRoute.steps &&
+        activeRoute.steps.map((step, idx) => {
+          const pos = gpsToPercent(step.coordinates);
+          const isSelected = selectedWaypointIndex === idx;
+          const isFirst = idx === 0;
+          const isLast = idx === activeRoute.steps.length - 1;
+
+          return (
+            <div
+              key={`radar-wp-${idx}`}
+              style={{ left: pos.left, top: pos.top }}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 z-25 transition-all cursor-pointer ${
+                isSelected ? 'scale-125 z-40' : 'hover:scale-110'
+              }`}
+              onClick={() => {
+                if (onSelectWaypoint) onSelectWaypoint(idx);
+                setSelectedWaypointPopup({ index: idx, step });
+              }}
+            >
+              <div
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border shadow-lg ${
+                  isSelected
+                    ? 'bg-amber-400 text-purple-950 border-white ring-2 ring-purple-600'
+                    : isFirst
+                    ? 'bg-emerald-600 text-white border-white'
+                    : isLast
+                    ? 'bg-amber-500 text-purple-950 border-white'
+                    : 'bg-purple-800 text-white border-purple-300'
+                }`}
+              >
+                {idx + 1}
+              </div>
+            </div>
+          );
+        })}
     </div>
   );
 
@@ -590,10 +636,130 @@ export function CampusMap({
                 strokeOpacity={0.9}
               />
             )}
+
+            {/* Turn-by-Turn Accessible Waypoint Markers Overlaid on Google Map */}
+            {activeRoute &&
+              activeRoute.steps &&
+              activeRoute.steps.map((step, idx) => {
+                const isSelected = selectedWaypointIndex === idx;
+                const isFirst = idx === 0;
+                const isLast = idx === activeRoute.steps.length - 1;
+
+                return (
+                  <AdvancedMarker
+                    key={`route-waypoint-${idx}`}
+                    position={step.coordinates}
+                    title={`Waypoint ${idx + 1}: ${step.instruction}`}
+                    zIndex={isSelected ? 60 : 35}
+                    onClick={() => {
+                      if (onSelectWaypoint) onSelectWaypoint(idx);
+                      setSelectedWaypointPopup({ index: idx, step });
+                      setSelectedBuilding(null);
+                      setSelectedReport(null);
+                      setSelectedParking(null);
+                    }}
+                  >
+                    <div
+                      className={`cursor-pointer transition-all duration-200 transform flex flex-col items-center ${
+                        isSelected ? 'scale-125 -translate-y-2' : 'hover:scale-115'
+                      }`}
+                    >
+                      {/* Waypoint Numbered Circle Badge */}
+                      <div
+                        className={`flex items-center justify-center font-black text-xs rounded-full shadow-2xl border-2 transition-all ${
+                          isSelected
+                            ? 'w-9 h-9 bg-purple-900 text-amber-300 border-amber-300 ring-4 ring-amber-400/60 shadow-purple-950/70'
+                            : isFirst
+                            ? 'w-7 h-7 bg-emerald-600 text-white border-white shadow-emerald-900/40'
+                            : isLast
+                            ? 'w-7 h-7 bg-amber-500 text-purple-950 border-white shadow-amber-900/40'
+                            : 'w-7 h-7 bg-blue-700 text-white border-white shadow-blue-900/40'
+                        }`}
+                      >
+                        {isFirst ? (
+                          <span className="text-[10px] uppercase font-black">1</span>
+                        ) : isLast ? (
+                          <FaWheelchair className="w-3.5 h-3.5" />
+                        ) : (
+                          <span>{idx + 1}</span>
+                        )}
+                      </div>
+
+                      {/* Waypoint Sub-Label */}
+                      <div
+                        className={`text-[9px] font-black px-1.5 py-0.5 rounded-md text-center shadow-md -mt-1 border ${
+                          isSelected
+                            ? 'bg-amber-400 text-purple-950 border-amber-500 font-extrabold'
+                            : 'bg-purple-950/90 text-white border-purple-400/50'
+                        }`}
+                      >
+                        {isFirst ? 'Start' : isLast ? 'Arrival' : `WP ${idx + 1}`}
+                      </div>
+                    </div>
+                  </AdvancedMarker>
+                );
+              })}
           </Map>
         </MapErrorBoundary>
       ) : (
         renderRadarView()
+      )}
+
+      {/* Waypoint Info Window Popup (When a Waypoint Pin is Clicked on Map) */}
+      {selectedWaypointPopup && (
+        <div className="absolute bottom-4 left-4 z-30 max-w-sm w-full bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-2xl border-2 border-purple-400 text-xs space-y-2.5 animate-fadeIn">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-xl bg-purple-900 text-amber-300 font-black flex items-center justify-center text-xs shrink-0 shadow-sm">
+                {selectedWaypointPopup.index + 1}
+              </span>
+              <div>
+                <h4 className="font-black text-sm text-purple-950 leading-tight">
+                  Waypoint #{selectedWaypointPopup.index + 1}
+                </h4>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  GPS: {selectedWaypointPopup.step.coordinates.lat.toFixed(4)}, {selectedWaypointPopup.step.coordinates.lng.toFixed(4)}
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedWaypointPopup(null)}
+              className="text-slate-400 hover:text-slate-700 font-bold text-sm px-1.5 py-0.5 rounded bg-slate-100"
+            >
+              ✕
+            </button>
+          </div>
+
+          <p className="text-slate-800 text-xs font-bold leading-relaxed">
+            {selectedWaypointPopup.step.instruction}
+          </p>
+
+          <div className="p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-[11px] text-purple-950">
+            <strong className="block text-purple-900 font-bold mb-0.5">ADA Guidance:</strong>
+            {selectedWaypointPopup.step.accessibilityNotes}
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            {activeRoute?.googleMapsUrl && (
+              <a
+                href={activeRoute.googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm flex items-center gap-1.5"
+              >
+                <FaArrowUpRightFromSquare className="w-3 h-3" />
+                <span>Navigate in Google Maps</span>
+              </a>
+            )}
+
+            <button
+              onClick={() => setSelectedWaypointPopup(null)}
+              className="text-purple-700 hover:text-purple-950 font-bold text-xs"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Building Info Window / Popup Card */}

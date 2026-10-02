@@ -162,6 +162,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'ccsc',
     name: 'Cesar Chavez Student Center',
     code: 'CCSC',
+    address: '1650 Holloway Ave',
     coordinates: { lat: 37.7238, lng: -122.4785 },
     accessibleEntrances: [
       {
@@ -200,6 +201,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'library',
     name: 'J. Paul Leonard Library',
     code: 'LIB',
+    address: '1630 Holloway Ave',
     coordinates: { lat: 37.7214, lng: -122.4782 },
     accessibleEntrances: [
       {
@@ -238,6 +240,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'thornton',
     name: 'Thornton Hall',
     code: 'TH',
+    address: '1600 Holloway Ave',
     coordinates: { lat: 37.7233, lng: -122.4764 },
     accessibleEntrances: [
       {
@@ -262,6 +265,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'hensill',
     name: 'Hensill Hall (Biology & Chemistry)',
     code: 'HH',
+    address: '1600 Holloway Ave',
     coordinates: { lat: 37.7237, lng: -122.4756 },
     accessibleEntrances: [
       {
@@ -286,6 +290,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'mashouf',
     name: 'Mashouf Wellness Center',
     code: 'MWC',
+    address: '755 Font Blvd',
     coordinates: { lat: 37.7212, lng: -122.4831 },
     accessibleEntrances: [
       {
@@ -310,6 +315,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'fine_arts',
     name: 'Fine Arts Building',
     code: 'FA',
+    address: '1600 Holloway Ave',
     coordinates: { lat: 37.7218, lng: -122.4795 },
     accessibleEntrances: [
       {
@@ -334,6 +340,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'humanities',
     name: 'Humanities Building',
     code: 'HUM',
+    address: '1600 Holloway Ave',
     coordinates: { lat: 37.7226, lng: -122.4808 },
     accessibleEntrances: [
       {
@@ -358,6 +365,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'marcus_hall',
     name: 'George and Judy Marcus Hall (BECA)',
     code: 'MH',
+    address: '1600 Holloway Ave',
     coordinates: { lat: 37.7215, lng: -122.4815 },
     accessibleEntrances: [
       {
@@ -382,6 +390,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'ssb',
     name: 'Student Services Building',
     code: 'SSB',
+    address: '1600 Holloway Ave',
     coordinates: { lat: 37.7245, lng: -122.4770 },
     accessibleEntrances: [
       {
@@ -406,6 +415,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'lot_20',
     name: 'Lot 20 Parking Garage & Campus Pedestrian Bridge',
     code: 'LOT20',
+    address: 'State Drive',
     coordinates: { lat: 37.7208, lng: -122.4760 },
     accessibleEntrances: [
       {
@@ -430,6 +440,7 @@ export const SFSU_BUILDINGS: CampusBuilding[] = [
     id: 'muni_bart_station',
     name: '19th Ave & Holloway M-Ocean View Transit Hub',
     code: 'MUNI-BART',
+    address: '19th Ave & Holloway Ave',
     coordinates: { lat: 37.7234, lng: -122.4750 },
     accessibleEntrances: [
       {
@@ -653,4 +664,495 @@ export const SFSU_ACCESSIBLE_PARKING: AccessibleParkingLocation[] = [
     pedestrianRoute: 'Zero-step entrance into Fine Arts and Humanities corridor',
   },
 ];
+
+export interface CampusCorridorWaypoint {
+  stepNumber: number;
+  title: string;
+  instruction: string;
+  accessibilityNotes: string;
+  coordinates: { lat: number; lng: number };
+  isElevatorNeeded?: boolean;
+  isRamp?: boolean;
+}
+
+export interface AccessibleCorridorItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  destinationBuildingId: string;
+  destinationName: string;
+  destinationCode: string;
+  destinationAddress: string;
+  destinationCoords: { lat: number; lng: number };
+  defaultOriginName: string;
+  defaultOriginAddress: string;
+  defaultOriginCoords: { lat: number; lng: number };
+  distanceMeters: number;
+  estimatedMinutes: number;
+  maxSlopeGrade: number;
+  isZeroStairs: boolean;
+  elevatorDownWarning?: string;
+  waypoints: CampusCorridorWaypoint[];
+  pathCoordinates: { lat: number; lng: number }[];
+}
+
+export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
+  {
+    id: 'corridor-dprc-ccsc',
+    title: 'DPRC & Student Center',
+    subtitle: 'Direct zero-stair corridor to Disability Programs & Resource Center',
+    category: 'Student Services',
+    destinationBuildingId: 'ccsc',
+    destinationName: 'Cesar Chavez Student Center (DPRC Rm 400)',
+    destinationCode: 'CCSC',
+    destinationAddress: '1650 Holloway Ave',
+    destinationCoords: { lat: 37.7238, lng: -122.4785 },
+    defaultOriginName: '19th & Holloway Transit Hub',
+    defaultOriginAddress: '19th Ave & Holloway Ave',
+    defaultOriginCoords: { lat: 37.7234, lng: -122.4750 },
+    distanceMeters: 320,
+    estimatedMinutes: 4,
+    maxSlopeGrade: 2.1,
+    isZeroStairs: true,
+    elevatorDownWarning: 'North Atrium elevator is under service. Route uses verified South Terrace elevator or Malcolm X grade ramp.',
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'Transit Plaza Departure',
+        instruction: 'Start at 19th & Holloway M-Line / BART Shuttle stop via ADA concrete curb ramp.',
+        accessibilityNotes: 'Zero curb step • Tactile yellow warning pavers • Slope 0.5%',
+        coordinates: { lat: 37.7234, lng: -122.4750 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Central Quad Paved Walkway',
+        instruction: 'Follow the wide, shaded concrete walkway westward past Hensill Hall and the campus green.',
+        accessibilityNotes: 'Level smooth concrete • Grade < 2% • Continuous 8ft width',
+        coordinates: { lat: 37.7236, lng: -122.4768 },
+      },
+      {
+        stepNumber: 3,
+        title: 'Malcolm X Plaza Automated Entrance',
+        instruction: 'Reach Malcolm X Plaza and enter through South Plaza automatic power push-pad doors.',
+        accessibilityNotes: 'Automatic sliding doors (36-inch clearance) • Push-button accessible',
+        coordinates: { lat: 37.7235, lng: -122.4784 },
+        isRamp: true,
+      },
+      {
+        stepNumber: 4,
+        title: 'South Terrace Elevator to DPRC',
+        instruction: 'Take operational South elevator or level corridor to DPRC Suite 400 for academic accommodations.',
+        accessibilityNotes: 'Auditory floor chime • Braille call buttons • Level entry',
+        coordinates: { lat: 37.7238, lng: -122.4785 },
+        isElevatorNeeded: true,
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7234, lng: -122.4750 },
+      { lat: 37.72345, lng: -122.4758 },
+      { lat: 37.7236, lng: -122.4768 },
+      { lat: 37.72365, lng: -122.4776 },
+      { lat: 37.7235, lng: -122.4784 },
+      { lat: 37.7238, lng: -122.4785 },
+    ],
+  },
+  {
+    id: 'corridor-library',
+    title: 'J. Paul Leonard Library',
+    subtitle: 'Malcolm X Plaza gateway to research commons & assistive tech lab',
+    category: 'Academic Commons',
+    destinationBuildingId: 'library',
+    destinationName: 'J. Paul Leonard Library',
+    destinationCode: 'LIB',
+    destinationAddress: '1630 Holloway Ave',
+    destinationCoords: { lat: 37.7214, lng: -122.4782 },
+    defaultOriginName: '19th & Holloway Transit Hub',
+    defaultOriginAddress: '19th Ave & Holloway Ave',
+    defaultOriginCoords: { lat: 37.7234, lng: -122.4750 },
+    distanceMeters: 380,
+    estimatedMinutes: 5,
+    maxSlopeGrade: 2.4,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'Holloway Station Terminal',
+        instruction: 'Depart westbound from 19th & Holloway transit shelter.',
+        accessibilityNotes: 'Level concrete boarding zone with high-contrast markings',
+        coordinates: { lat: 37.7234, lng: -122.4750 },
+      },
+      {
+        stepNumber: 2,
+        title: 'South Quad Promenade',
+        instruction: 'Turn gently southwest onto the paved Quad promenade toward the Library clock tower.',
+        accessibilityNotes: 'Smooth interlocking pavers • Grade 1.8% • Wide turning radius',
+        coordinates: { lat: 37.7224, lng: -122.4768 },
+      },
+      {
+        stepNumber: 3,
+        title: 'Peet’s Ground Floor ADA Ramp',
+        instruction: 'Take the covered ADA switchback ramp equipped with double handrails up to Malcolm X Plaza.',
+        accessibilityNotes: 'Low slope switchback ramp • 4.2% grade • Continuous metal handrails',
+        coordinates: { lat: 37.7216, lng: -122.4788 },
+        isRamp: true,
+      },
+      {
+        stepNumber: 4,
+        title: 'Main Gateway Double Automatic Doors',
+        instruction: 'Pass through automated double sliding glass doors into the main library atrium.',
+        accessibilityNotes: 'Automatic motion sensors • Accessible turnstiles (38-in clearance)',
+        coordinates: { lat: 37.7214, lng: -122.4782 },
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7234, lng: -122.4750 },
+      { lat: 37.7228, lng: -122.4758 },
+      { lat: 37.7224, lng: -122.4768 },
+      { lat: 37.7219, lng: -122.4776 },
+      { lat: 37.7216, lng: -122.4788 },
+      { lat: 37.7214, lng: -122.4782 },
+    ],
+  },
+  {
+    id: 'corridor-science-thornton',
+    title: 'Science Quad & Thornton Hall',
+    subtitle: 'Direct ramp connection to STEM research laboratories & CS labs',
+    category: 'STEM & Labs',
+    destinationBuildingId: 'thornton',
+    destinationName: 'Thornton Hall (Science Quad)',
+    destinationCode: 'TH',
+    destinationAddress: '1600 Holloway Ave',
+    destinationCoords: { lat: 37.7233, lng: -122.4764 },
+    defaultOriginName: '19th & Holloway Transit Hub',
+    defaultOriginAddress: '19th Ave & Holloway Ave',
+    defaultOriginCoords: { lat: 37.7234, lng: -122.4750 },
+    distanceMeters: 220,
+    estimatedMinutes: 3,
+    maxSlopeGrade: 1.8,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'Hensill Hall East Plaza',
+        instruction: 'Depart from the transit loop directly adjacent to Hensill Hall entrance.',
+        accessibilityNotes: 'Zero-step concrete sidewalk with tactile edge',
+        coordinates: { lat: 37.7234, lng: -122.4750 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Covered Breezeway Link',
+        instruction: 'Roll through the covered weather-protected breezeway between Hensill and Science.',
+        accessibilityNotes: 'Completely flat (0% slope) • Dry non-slip concrete',
+        coordinates: { lat: 37.7235, lng: -122.4758 },
+      },
+      {
+        stepNumber: 3,
+        title: 'Thornton Hall South Quad Ramp',
+        instruction: 'Follow the gentle concrete approach ramp to the Thornton South Quad ground entrance.',
+        accessibilityNotes: 'Grade 2.2% • Stainless steel handrails on both sides',
+        coordinates: { lat: 37.7231, lng: -122.4766 },
+        isRamp: true,
+      },
+      {
+        stepNumber: 4,
+        title: 'Thornton Science Elevator Bank',
+        instruction: 'Enter through automated push-pad door to access the 9-story passenger elevator bank.',
+        accessibilityNotes: 'Wheelchair height call buttons • Operational',
+        coordinates: { lat: 37.7233, lng: -122.4764 },
+        isElevatorNeeded: true,
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7234, lng: -122.4750 },
+      { lat: 37.7235, lng: -122.4758 },
+      { lat: 37.7231, lng: -122.4766 },
+      { lat: 37.7233, lng: -122.4764 },
+    ],
+  },
+  {
+    id: 'corridor-mashouf',
+    title: 'Mashouf Wellness Center',
+    subtitle: 'Adaptive fitness, zero-entry heated pool & track accessibility',
+    category: 'Athletics & Wellness',
+    destinationBuildingId: 'mashouf',
+    destinationName: 'Mashouf Wellness Center',
+    destinationCode: 'MWC',
+    destinationAddress: '755 Font Blvd',
+    destinationCoords: { lat: 37.7212, lng: -122.4831 },
+    defaultOriginName: 'Lot 20 Ground Floor ADA Hub',
+    defaultOriginAddress: 'State Drive',
+    defaultOriginCoords: { lat: 37.7248, lng: -122.4832 },
+    distanceMeters: 410,
+    estimatedMinutes: 5,
+    maxSlopeGrade: 1.5,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'Lot 20 Ground ADA Hub',
+        instruction: 'Exit Level 1 ADA van stalls onto the designated State Drive pedestrian walkway.',
+        accessibilityNotes: 'Direct flat transition • High-visibility crosswalk',
+        coordinates: { lat: 37.7248, lng: -122.4832 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Athletic Field Corridor',
+        instruction: 'Roll southward along the wide, well-lit concrete pathway skirting the recreation field.',
+        accessibilityNotes: '100% flat (grade 0.8%) • Modern non-slip paving',
+        coordinates: { lat: 37.7230, lng: -122.4831 },
+      },
+      {
+        stepNumber: 3,
+        title: 'Mashouf Plaza Approach',
+        instruction: 'Cross the open plaza toward the illuminated glass facade of Mashouf Wellness Center.',
+        accessibilityNotes: 'Zero thresholds • Tactile warning strip at plaza edge',
+        coordinates: { lat: 37.7214, lng: -122.4830 },
+      },
+      {
+        stepNumber: 4,
+        title: 'Automatic Double Sliding Glass Entry',
+        instruction: 'Enter through the main zero-threshold sliding glass doors to check-in and pool lift.',
+        accessibilityNotes: 'Motion-sensing double sliders • ADA pool lift chair in pool area',
+        coordinates: { lat: 37.7212, lng: -122.4831 },
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7248, lng: -122.4832 },
+      { lat: 37.7238, lng: -122.4831 },
+      { lat: 37.7230, lng: -122.4831 },
+      { lat: 37.7220, lng: -122.4831 },
+      { lat: 37.7214, lng: -122.4830 },
+      { lat: 37.7212, lng: -122.4831 },
+    ],
+  },
+  {
+    id: 'corridor-health-caps',
+    title: 'Student Health & CAPS',
+    subtitle: 'Confidential mental health counseling, urgent crisis support & clinic',
+    category: 'Health & Support',
+    destinationBuildingId: 'ssb',
+    destinationName: 'Gator Health Center & CAPS Support',
+    destinationCode: 'CAPS',
+    destinationAddress: '730 Font Blvd',
+    destinationCoords: { lat: 37.7208, lng: -122.4805 },
+    defaultOriginName: '19th & Holloway Transit Hub',
+    defaultOriginAddress: '19th Ave & Holloway Ave',
+    defaultOriginCoords: { lat: 37.7234, lng: -122.4750 },
+    distanceMeters: 460,
+    estimatedMinutes: 6,
+    maxSlopeGrade: 2.2,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: '19th & Holloway Transit Crossing',
+        instruction: 'Cross at the accessible auditory pedestrian signal on Holloway Avenue.',
+        accessibilityNotes: 'Auditory beeper chirp • ADA truncated dome curb cuts',
+        coordinates: { lat: 37.7234, lng: -122.4750 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Southwest Diagonal Promenade',
+        instruction: 'Follow the gentle paved promenade past the Library toward Font Boulevard.',
+        accessibilityNotes: 'Grade 1.9% • Resting benches placed every 50 meters',
+        coordinates: { lat: 37.7220, lng: -122.4780 },
+      },
+      {
+        stepNumber: 3,
+        title: 'Font Blvd Approach Ramp',
+        instruction: 'Take the ADA approach ramp leading up to the Student Health Center entrance.',
+        accessibilityNotes: 'Ramp grade 3.5% • Continuous double handrails',
+        coordinates: { lat: 37.7210, lng: -122.4802 },
+        isRamp: true,
+      },
+      {
+        stepNumber: 4,
+        title: 'Gator Health & CAPS Suite 300',
+        instruction: 'Enter via automatic power-pad doors and take the elevator directly to 3rd Floor CAPS.',
+        accessibilityNotes: 'Auditory floor chime • Quiet sensory-friendly intake lobby',
+        coordinates: { lat: 37.7208, lng: -122.4805 },
+        isElevatorNeeded: true,
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7234, lng: -122.4750 },
+      { lat: 37.7228, lng: -122.4764 },
+      { lat: 37.7220, lng: -122.4780 },
+      { lat: 37.7214, lng: -122.4795 },
+      { lat: 37.7210, lng: -122.4802 },
+      { lat: 37.7208, lng: -122.4805 },
+    ],
+  },
+  {
+    id: 'corridor-finearts-humanities',
+    title: 'Fine Arts & Humanities',
+    subtitle: 'Gallery courtyard, creative studios & speech hearing clinic corridor',
+    category: 'Creative Arts',
+    destinationBuildingId: 'fine_arts',
+    destinationName: 'Fine Arts & Humanities Complex',
+    destinationCode: 'FA-HUM',
+    destinationAddress: '1600 Holloway Ave',
+    destinationCoords: { lat: 37.7218, lng: -122.4795 },
+    defaultOriginName: 'Tapia Drive ADA Loading Zone',
+    defaultOriginAddress: 'Tapia Drive',
+    defaultOriginCoords: { lat: 37.7226, lng: -122.4768 },
+    distanceMeters: 280,
+    estimatedMinutes: 4,
+    maxSlopeGrade: 2.0,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'Tapia Drive Drop-Off Stalls',
+        instruction: 'Depart from the 15-minute active loading accessible stalls on Tapia Drive.',
+        accessibilityNotes: 'Direct zero-curb ramp into campus walkway',
+        coordinates: { lat: 37.7226, lng: -122.4768 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Humanities Courtyard Arcade',
+        instruction: 'Roll along the level shaded courtyard arcade toward the Fine Arts sculpture garden.',
+        accessibilityNotes: 'Flat smooth pavement • Grade 1.2% • Protected from rain',
+        coordinates: { lat: 37.7224, lng: -122.4782 },
+      },
+      {
+        stepNumber: 3,
+        title: 'Fine Arts North Gallery Ramp',
+        instruction: 'Follow the concrete approach ramp with safety toe-curbs to the North Gallery entrance.',
+        accessibilityNotes: 'Low-slope ramp (3.2%) • Safety edge curbs on both sides',
+        coordinates: { lat: 37.7220, lng: -122.4794 },
+        isRamp: true,
+      },
+      {
+        stepNumber: 4,
+        title: 'Gallery Concourse Entry',
+        instruction: 'Enter level-threshold double doors into the Fine Arts exhibition and studio wing.',
+        accessibilityNotes: 'Push-paddle assist • Level interior transition',
+        coordinates: { lat: 37.7218, lng: -122.4795 },
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7226, lng: -122.4768 },
+      { lat: 37.7225, lng: -122.4776 },
+      { lat: 37.7224, lng: -122.4782 },
+      { lat: 37.7220, lng: -122.4794 },
+      { lat: 37.7218, lng: -122.4795 },
+    ],
+  },
+  {
+    id: 'corridor-marcus-beca',
+    title: 'Marcus Hall (BECA)',
+    subtitle: 'Broadcast studio soundstages & accessible digital media suites',
+    category: 'Media & Tech',
+    destinationBuildingId: 'marcus_hall',
+    destinationName: 'George and Judy Marcus Hall (BECA)',
+    destinationCode: 'MH',
+    destinationAddress: '1600 Holloway Ave',
+    destinationCoords: { lat: 37.7215, lng: -122.4815 },
+    defaultOriginName: 'State Drive Accessible Stalls',
+    defaultOriginAddress: 'State Drive',
+    defaultOriginCoords: { lat: 37.7225, lng: -122.4820 },
+    distanceMeters: 170,
+    estimatedMinutes: 2,
+    maxSlopeGrade: 1.4,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'State Drive Accessible Stalls',
+        instruction: 'Depart from designated metered ADA parking bays on State Drive.',
+        accessibilityNotes: 'Curb ramp adjacent to stall • Smooth paved asphalt',
+        coordinates: { lat: 37.7225, lng: -122.4820 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Marcus Hall Plaza Walkway',
+        instruction: 'Follow the gentle paved promenade directly to Marcus Hall main entrance.',
+        accessibilityNotes: 'Grade 1.2% • Wide 8-foot pathway • Zero obstacles',
+        coordinates: { lat: 37.7218, lng: -122.4816 },
+      },
+      {
+        stepNumber: 3,
+        title: 'State Drive Automated Entry',
+        instruction: 'Enter via automatic motion-activated double glass sliding doors.',
+        accessibilityNotes: 'Motion sensor automatic doors • Level threshold',
+        coordinates: { lat: 37.7214, lng: -122.4813 },
+      },
+      {
+        stepNumber: 4,
+        title: 'Marcus Broadcast Elevator',
+        instruction: 'Take high-speed ADA elevator to broadcast studios and audio suites.',
+        accessibilityNotes: 'Braille controls • Voice floor annunciator',
+        coordinates: { lat: 37.7215, lng: -122.4815 },
+        isElevatorNeeded: true,
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7225, lng: -122.4820 },
+      { lat: 37.7220, lng: -122.4818 },
+      { lat: 37.7218, lng: -122.4816 },
+      { lat: 37.7214, lng: -122.4813 },
+      { lat: 37.7215, lng: -122.4815 },
+    ],
+  },
+  {
+    id: 'corridor-lot20-bridge',
+    title: 'Lot 20 ADA Garage to Quad',
+    subtitle: 'Direct covered pedestrian bridge connecting ADA parking to Main Quad',
+    category: 'Parking & Transit',
+    destinationBuildingId: 'ccsc',
+    destinationName: 'Main Campus Quad (Malcolm X Plaza)',
+    destinationCode: 'QUAD',
+    destinationAddress: 'State Drive to Holloway Ave',
+    destinationCoords: { lat: 37.7238, lng: -122.4785 },
+    defaultOriginName: 'Lot 20 Level 1 ADA Van Hub',
+    defaultOriginAddress: 'State Drive (Ground Level)',
+    defaultOriginCoords: { lat: 37.7248, lng: -122.4832 },
+    distanceMeters: 390,
+    estimatedMinutes: 5,
+    maxSlopeGrade: 1.6,
+    isZeroStairs: true,
+    waypoints: [
+      {
+        stepNumber: 1,
+        title: 'Lot 20 Ground Level 1 Stalls',
+        instruction: 'Start at van-accessible stalls next to the North pedestrian elevator tower.',
+        accessibilityNotes: '8-ft van access aisle • Clear overhead clearance',
+        coordinates: { lat: 37.7248, lng: -122.4832 },
+      },
+      {
+        stepNumber: 2,
+        title: 'Elevator to Level 3 Enclosed Bridge',
+        instruction: 'Take the elevator up to Level 3 and exit onto the enclosed pedestrian bridge.',
+        accessibilityNotes: 'High-speed elevator with voice chime • 100% barrier-free',
+        coordinates: { lat: 37.7210, lng: -122.4764 },
+        isElevatorNeeded: true,
+      },
+      {
+        stepNumber: 3,
+        title: 'Over-Traffic Skybridge Crossing',
+        instruction: 'Cross the covered bridge directly over vehicular traffic into the academic corridor.',
+        accessibilityNotes: 'Flat slip-resistant deck • Weather protected',
+        coordinates: { lat: 37.7220, lng: -122.4770 },
+      },
+      {
+        stepNumber: 4,
+        title: 'Arrival at Main Quad',
+        instruction: 'Arrive at the level Malcolm X Plaza and central academic hub.',
+        accessibilityNotes: 'Zero steps • Seamless connectivity to all buildings',
+        coordinates: { lat: 37.7238, lng: -122.4785 },
+      },
+    ],
+    pathCoordinates: [
+      { lat: 37.7248, lng: -122.4832 },
+      { lat: 37.7235, lng: -122.4800 },
+      { lat: 37.7225, lng: -122.4780 },
+      { lat: 37.7210, lng: -122.4764 },
+      { lat: 37.7220, lng: -122.4770 },
+      { lat: 37.7238, lng: -122.4785 },
+    ],
+  },
+];
+
 

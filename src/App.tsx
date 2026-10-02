@@ -48,6 +48,7 @@ export default function App() {
   const [originBuilding, setOriginBuilding] = useState<CampusBuilding | null>(SFSU_BUILDINGS[10]); // Transit hub default
   const [destBuilding, setDestBuilding] = useState<CampusBuilding | null>(SFSU_BUILDINGS[0]); // Cesar Chavez Student Center default
   const [activeRoute, setActiveRoute] = useState<AccessibleRouteOption | null>(null);
+  const [selectedWaypointIndex, setSelectedWaypointIndex] = useState<number | null>(0);
 
   // Prefill for report creation when clicking on map
   const [prefillLocation, setPrefillLocation] = useState<{ name: string; buildingId?: string } | undefined>();
@@ -336,7 +337,7 @@ export default function App() {
                 </div>
               )}
 
-              {/* 1. Low-Barrier Pathfinder & "Take me to..." (Upper Side of Maps) */}
+              {/* 1. Low-Barrier Pathfinder & Carousel (Upper Side of Maps) */}
               <RoutePlanner
                 buildings={buildings}
                 originBuilding={originBuilding}
@@ -348,9 +349,11 @@ export default function App() {
                 onRequestRide={() => setActiveTab('support')}
                 hasElevatorDownInDest={hasElevatorDownInDest}
                 onOpenHotline={() => setIsHotlineOpen(true)}
+                selectedWaypointIndex={selectedWaypointIndex}
+                onSelectWaypoint={setSelectedWaypointIndex}
               />
 
-              {/* 2. Interactive Google Map (Below Pathfinder) */}
+              {/* 2. Interactive Google Map (Below Pathfinder with Waypoints Overlaid) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -360,7 +363,7 @@ export default function App() {
                     </h3>
                   </div>
                   <span className="text-xs text-slate-500 hidden sm:inline">
-                    Tap any building marker to inspect elevators or start accessible route
+                    Tap any building or waypoint marker to inspect accessible corridor details
                   </span>
                 </div>
 
@@ -368,6 +371,8 @@ export default function App() {
                   buildings={buildings}
                   reports={reports}
                   activeRoute={activeRoute}
+                  selectedWaypointIndex={selectedWaypointIndex}
+                  onSelectWaypoint={setSelectedWaypointIndex}
                   onSelectBuildingForRoute={handleSelectBuildingForRoute}
                   onReportAtLocation={handleReportAtLocation}
                 />
