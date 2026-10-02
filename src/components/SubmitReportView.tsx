@@ -1298,7 +1298,7 @@ export function SubmitReportView({
 
               {/* Highlighted Try Trial Button & Arrow */}
               <div className="flex items-center gap-2 shrink-0 ml-2">
-                <span className="px-3.5 py-1.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-purple-950 font-black text-xs sm:text-sm rounded-xl shadow-xs border border-slate-300 hidden sm:flex items-center gap-1.5">
+                <span className="px-3.5 py-1.5 bg-purple-700 text-white font-black text-xs sm:text-sm rounded-xl border border-slate-300 hidden sm:flex items-center gap-1.5">
                   <FaVideo className="w-3.5 h-3.5 text-purple-950" />
                   <span>{showTrialWalkthrough ? 'Close Demo' : 'Try Trial & Watch Video'}</span>
                 </span>
