@@ -1,0 +1,9 @@
+{
+  "name": "GatorAccess - SFSU Campus Accessibility Navigator & Incident Reporter",
+  "description": "Accessible campus navigation with barrier detection, real-time elevator & ramp status, AI-powered hazard photo analysis, automated SFSU Facilities work order reporting, and direct DPRC & Gator Mobility ride assistance.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
