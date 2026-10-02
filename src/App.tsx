@@ -346,9 +346,9 @@ export default function App() {
           {/* TAB 1: CAMPUS NAVIGATOR */}
           {activeTab === 'map' && (
             <div className="space-y-6 animate-fadeIn">
-              {/* How to Use Prompt / Welcome Guide */}
+              {/* How to Use Prompt / Welcome Guide (Desktop only, hidden on mobile to conserve screen space) */}
               {showWelcomeGuide && (
-                <div className="bg-gradient-to-r from-purple-900 via-indigo-950 to-purple-950 text-white p-5 rounded-2xl shadow-xl border border-purple-800 relative">
+                <div className="hidden md:block bg-gradient-to-r from-purple-900 via-indigo-950 to-purple-950 text-white p-5 rounded-2xl shadow-xl border border-purple-800 relative">
                   <button
                     onClick={() => setShowWelcomeGuide(false)}
                     className="absolute top-3 right-3 text-purple-300 hover:text-white text-xs font-semibold px-2 py-1 rounded-md bg-white/10"
