@@ -168,7 +168,7 @@ export function UnifiedRouteModal({
               onClick={handleToggleSpeak}
               className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 cursor-pointer ${
                 isSpeaking
-                  ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
+                  ? 'bg-rose-600 text-white border-rose-500'
                   : 'bg-purple-800/80 hover:bg-purple-700 text-white border-purple-500/60'
               }`}
               title="Voice navigation"
@@ -332,7 +332,6 @@ export function UnifiedRouteModal({
           {/* RIGHT PANEL: Live Interactive Map Overlaid with Waypoints (~62% width on desktop) */}
           <div className="flex-1 relative bg-slate-950 overflow-hidden flex flex-col">
             <div className="absolute top-3 left-3 z-20 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-purple-500/40 text-xs text-purple-200 flex items-center gap-2 shadow-lg">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
               <span className="font-bold">Focused Route Corridor</span>
               <span className="text-[10px] text-slate-400 hidden sm:inline">(Non-relevant landmarks minimized)</span>
             </div>

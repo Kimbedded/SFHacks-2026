@@ -424,7 +424,7 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
             }`}
           >
             <div className="flex items-center gap-1.5 text-purple-800 font-bold text-[11px] uppercase tracking-wider mb-0.5">
-              <Sparkles className="w-3 h-3 text-amber-500 animate-spin" style={{ animationDuration: '4s' }} />
+              <Sparkles className="w-3 h-3 text-amber-500" />
               <span>Gemini Voice</span>
             </div>
             <p className="text-slate-800 leading-snug font-semibold">
@@ -444,7 +444,7 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
             aria-label="Open Gemini Voice Accessibility Assistant"
           >
             {/* Pulsing halo */}
-            <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-purple-600 to-amber-400 opacity-40 blur-sm group-hover:opacity-75 transition duration-500 animate-pulse" />
+            <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-purple-600 to-amber-400 opacity-40 blur-sm group-hover:opacity-75 transition duration-500" />
             
             <div className="relative flex items-center justify-center">
               <Mic className="w-6 h-6 text-white group-hover:scale-110 transition-transform" />
@@ -466,10 +466,6 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-extrabold text-sm text-white tracking-wide">Gemini Voice</h3>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-300/30 flex items-center gap-1">
-                    <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
-                    <span>Live Mic API</span>
-                  </span>
                 </div>
                 <p className="text-[11px] text-purple-200">SFSU Accessibility Navigator</p>
               </div>
@@ -547,9 +543,6 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
               }`}>
                 <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1.5">
                   <span className="flex items-center gap-1.5">
-                    {isRecording && (
-                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
-                    )}
                     {isRecording
                       ? 'Listening to your voice...'
                       : isProcessing
@@ -557,12 +550,12 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
                       : 'Transcribed question:'}
                   </span>
                   {isRecording ? (
-                    <span className="text-[10px] text-rose-600 font-mono font-bold animate-pulse">
-                      ● Recording Audio
+                    <span className="text-[10px] text-rose-600 font-mono font-bold">
+                      Recording audio
                     </span>
                   ) : isPlayingAudio ? (
                     <span className="text-[10px] text-purple-700 font-mono font-bold flex items-center gap-1">
-                      <Volume2 className="w-3 h-3 animate-bounce" />
+                      <Volume2 className="w-3 h-3 " />
                       Gemini Speaking
                     </span>
                   ) : null}
@@ -708,13 +701,12 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
                   {isProcessing ? (
                     <Loader2 className="w-6 h-6 animate-spin" />
                   ) : isRecording ? (
-                    <MicOff className="w-6 h-6 animate-pulse" />
+                    <MicOff className="w-6 h-6" />
                   ) : (
                     <Mic className="w-6 h-6" />
                   )}
                   {isRecording && (
                     <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-rose-500"></span>
                     </span>
                   )}

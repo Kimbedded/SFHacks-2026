@@ -66,12 +66,12 @@ export const GOOGLE_MAPS_ERRORS: Record<GoogleMapsErrorType, GoogleMapsErrorInfo
     title: 'Google Maps API Key Not Configured',
     summary: 'Running in Demo / Offline Campus Radar Mode using sample SF State accessibility data.',
     details:
-      'A Google Maps Platform API key is needed to load live street and satellite map tiles. The app continues to work in offline radar mode without crashing.',
+      'A Google Maps Platform API key is needed to load street and satellite map tiles. The app continues to work in offline radar mode without crashing.',
     steps: [
       'In Google AI Studio, open the Secrets / Configuration dialog (or set GOOGLE_MAPS_API_KEY in your environment).',
       'Add a new secret named GOOGLE_MAPS_API_KEY with your Google Cloud API key.',
       'Ensure the Maps JavaScript API is enabled on your Google Cloud project.',
-      'Refresh this page to load live Google Maps.',
+      'Refresh this page to load Google Maps.',
     ],
     docsLink: {
       label: 'Google Maps API Key Documentation',

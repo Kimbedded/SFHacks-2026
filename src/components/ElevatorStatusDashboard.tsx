@@ -184,25 +184,17 @@ export function ElevatorStatusDashboard({
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn">
+    <div className="w-full min-w-0 space-y-6 animate-fadeIn">
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-purple-950 via-indigo-900 to-purple-900 text-white p-6 rounded-2xl shadow-xl border border-purple-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-1">
-            <span className="p-1 rounded-md bg-amber-400 text-purple-950 font-bold text-xs flex items-center gap-1">
-              <FaTowerBroadcast className="w-3 h-3 text-purple-950 animate-pulse" />
-              LIVE TELEMETRY
-            </span>
-            <span className="p-1 rounded-md bg-purple-800/80 text-amber-300 font-bold text-xs flex items-center gap-1 border border-purple-600">
-              <FaFire className="w-3 h-3 text-amber-400" />
-              FIREBASE FIRESTORE SYNCED
-            </span>
             <h2 className="text-xl font-extrabold tracking-tight text-white">
-              Campus Facilities & Vertical Mobility Pipeline
+              Elevators & facilities
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-purple-200">
-            Real-time status of all {allElevators.length} SFSU elevators, power doors, ADA ramps, and automated Facilities work orders.
+            Status of {allElevators.length} campus elevators and facilities work orders.
           </p>
         </div>
 
@@ -256,10 +248,6 @@ export function ElevatorStatusDashboard({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-base text-slate-900">SFSU Elevator Health Matrix</h3>
-                <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-semibold border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                  Firestore Realtime
-                </span>
               </div>
               <p className="text-xs text-slate-500">
                 Click "Simulate Outage" to toggle an elevator; updates propagate to all connected student devices via Firebase.
@@ -334,7 +322,7 @@ export function ElevatorStatusDashboard({
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider shrink-0 ${
                         isDown
-                          ? 'bg-rose-100 text-rose-800 border border-rose-300 animate-pulse'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
                           : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                       }`}
                     >

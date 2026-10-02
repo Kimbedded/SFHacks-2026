@@ -478,7 +478,7 @@ export function SubmitReportView({
   const currentStepNum = getStepNumber();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="w-full min-w-0 space-y-6">
       {/* Hidden canvas for video frame extraction */}
       <canvas ref={canvasRef} className="hidden" />
 
@@ -487,9 +487,6 @@ export function SubmitReportView({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="p-1 rounded-md bg-amber-400 text-purple-950 font-bold text-xs uppercase tracking-wide">
-                Live Camera Only
-              </span>
               <h2 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
                 <span>AI Hazard Scanner & Report</span>
               </h2>
@@ -567,10 +564,10 @@ export function SubmitReportView({
 
             <div className="space-y-1">
               <h3 className="font-black text-xl text-purple-950">
-                Live Camera Accessibility Scanner
+                Photograph a barrier
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                Take a live photo of a campus physical barrier: blocked walkway, broken elevator, steep ramp, locked accessible restroom, or inaccessible entrance.
+                Take a photo of a campus barrier: blocked walkway, broken elevator, steep ramp, locked accessible restroom, or inaccessible entrance.
               </p>
             </div>
           </div>
@@ -610,8 +607,7 @@ export function SubmitReportView({
         <div className="bg-slate-950 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden space-y-4 p-4 text-white animate-fadeIn">
           <div className="flex items-center justify-between text-xs text-slate-300 px-2">
             <span className="flex items-center gap-1.5 font-bold text-emerald-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-              Live Camera Preview
+              Camera preview
             </span>
             <button
               type="button"
@@ -673,7 +669,7 @@ export function SubmitReportView({
           <div className="relative max-h-80 w-full max-w-md mx-auto rounded-xl overflow-hidden shadow-md border border-slate-200 bg-slate-950">
             <img
               src={capturedImage}
-              alt="Still photo captured from live camera showing campus barrier"
+              alt="Photo of a campus barrier"
               className="w-full h-64 object-cover"
             />
           </div>
@@ -822,7 +818,7 @@ export function SubmitReportView({
           <div className="relative w-16 h-16 mx-auto">
             <div className="absolute inset-0 rounded-full border-4 border-purple-200 border-t-purple-700 animate-spin"></div>
             <div className="absolute inset-2 rounded-full bg-purple-50 flex items-center justify-center text-purple-700">
-              <FaWandMagicSparkles className="w-6 h-6 animate-pulse text-amber-500" />
+              <FaWandMagicSparkles className="w-6 h-6 text-amber-500" />
             </div>
           </div>
 

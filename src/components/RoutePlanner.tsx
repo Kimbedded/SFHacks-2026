@@ -37,6 +37,7 @@ import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl } from '../utils/go
 import { UnifiedRouteModal } from './UnifiedRouteModal';
 
 interface RoutePlannerProps {
+  mapPanel?: React.ReactNode;
   buildings: CampusBuilding[];
   reports?: AccessibilityReport[];
   originBuilding: CampusBuilding | null;
@@ -79,7 +80,7 @@ const ORIGIN_PRESETS: OriginPreset[] = [
     id: 'origin-current',
     name: 'Current Location',
     shortName: 'Current Location',
-    address: 'Live Campus GPS (or Annex I if unacquired)',
+    address: 'Current location (or Annex I)',
     coordinates: { lat: 37.7260, lng: -122.4826 },
     icon: '📍',
   },
@@ -114,6 +115,7 @@ const ORIGIN_PRESETS: OriginPreset[] = [
 ];
 
 export function RoutePlanner({
+  mapPanel,
   buildings,
   reports = [],
   originBuilding,
@@ -154,7 +156,7 @@ export function RoutePlanner({
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
   const [showFaqGuide, setShowFaqGuide] = useState(false);
 
-  // Request Live GPS: If successful, use current location; if cannot acquire, fallback to Student Life Events Center / Annex I
+  // Request GPS: If successful, use current location; if cannot acquire, fallback to Student Life Events Center / Annex I
   const handleRequestGps = () => {
     setIsLocating(true);
     if ('geolocation' in navigator) {
@@ -166,7 +168,7 @@ export function RoutePlanner({
             id: 'origin-current',
             name: 'Current Location',
             shortName: 'Current Location',
-            address: `Live GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
+            address: `GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
             coordinates: coords,
             icon: '📍',
           };
@@ -240,12 +242,17 @@ export function RoutePlanner({
       onSelectWaypoint(nextIdx);
     }
 
-    const scrollAmount = 280;
-    waypointCarouselRef.current.scrollBy({
-      left: direction === 'left' ? -scrollAmount : scrollAmount,
-      behavior: 'smooth',
-    });
+
   };
+
+  // Keep the selected direction visible when using either map markers or step controls.
+  useEffect(() => {
+    const list = waypointCarouselRef.current;
+    const card = list?.children[selectedWaypointIndex ?? 0] as HTMLElement | undefined;
+    if (!list || !card) return;
+    const top = card.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
+    list.scrollTo({ top: Math.max(0, top - 4), behavior: 'smooth' });
+  }, [selectedWaypointIndex, activeRoute, viewMode]);
 
   // Select Corridor and Move to Turn-by-Turn Waypoint View
   const handleSelectCorridor = async (
@@ -273,7 +280,7 @@ export function RoutePlanner({
       destBldg?.elevators.some((e) => e.status === 'down') || Boolean(corridor.elevatorDownWarning);
 
     try {
-      // 1. Fetch live Google Maps pedestrian walking directions
+      // 1. Fetch Google Maps pedestrian walking directions
       const googleDirections = await getGoogleMapsWalkingRoute(
         startCoord,
         endCoord,
@@ -373,38 +380,41 @@ export function RoutePlanner({
       {/* 1. SIMPLE ORIGIN BAR (REPLACES BULKY ORIGIN/DESTINATION FORM INPUTS)     */}
       {/* ========================================================================= */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold shrink-0 shadow-sm">
+        <div className="flex items-center gap-4 overflow-x-auto pb-1">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center shrink-0">
               <FaWheelchair className="w-4 h-4" />
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-sm sm:text-base text-slate-900 leading-tight">
-                  SFSU Accessible Corridor Navigator
-                </h3>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
-                  Zero-Stairs ADA
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Departing from: <strong className="text-purple-900">{selectedOrigin.shortName}</strong> ({selectedOrigin.address})
-              </p>
-            </div>
+            <h3 className="whitespace-nowrap font-extrabold text-sm sm:text-base text-slate-900">
+              SFSU Accessible Corridor Navigator
+            </h3>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            <label htmlFor="mobility-profile" className="text-xs font-semibold text-slate-500 whitespace-nowrap">Mobility profile</label>
+            <select
+              id="mobility-profile"
+              value={mobilityProfile}
+              onChange={(e) => setMobilityProfile(e.target.value)}
+              className="w-40 sm:w-48 text-xs font-semibold text-purple-900 bg-purple-50 border border-purple-200 rounded-xl px-2.5 py-2"
+            >
+              <option value="Power Wheelchair">Power wheelchair · Grade &lt; 5%</option>
+              <option value="Manual Wheelchair">Manual wheelchair · Shallow slopes</option>
+              <option value="Walker / Cane">Walker / cane · Rest benches</option>
+              <option value="Visual / Tactile">Low vision · Tactile paths</option>
+            </select>
             <button
               onClick={() => setShowFaqGuide(!showFaqGuide)}
-              className="text-xs font-bold text-purple-800 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-xl border border-purple-200 transition-colors flex items-center gap-1.5"
+              aria-expanded={showFaqGuide}
+              aria-controls="accessibility-faqs"
+              className="min-h-11 text-xs font-bold text-purple-800 hover:text-purple-950 bg-purple-50 hover:bg-purple-100 px-2.5 py-2 rounded-xl border border-purple-200 transition-colors flex items-center gap-1.5 whitespace-nowrap"
             >
               <FaCircleQuestion className="w-3.5 h-3.5" />
               <span>Accessibility FAQs</span>
             </button>
-
             <button
               onClick={onRequestRide}
-              className="text-xs font-bold text-purple-950 bg-amber-400 hover:bg-amber-300 px-3 py-1.5 rounded-xl shadow-sm transition-transform active:scale-95 flex items-center gap-1.5"
+              className="min-h-11 text-xs font-bold text-purple-950 bg-amber-400 hover:bg-amber-300 px-3 py-2 rounded-xl transition-colors flex items-center gap-1.5 whitespace-nowrap"
               title="Request Gator Mobility Golf Cart Shuttle"
             >
               <FaCar className="w-3.5 h-3.5" />
@@ -413,19 +423,20 @@ export function RoutePlanner({
           </div>
         </div>
 
-        {/* Origin Preset Pill Picker */}
-        <div className="space-y-1.5 pt-1">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-            Choose Campus Starting Point:
-          </span>
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {/* Alternative starting points stay collapsed until requested. */}
+        <details className="group border-t border-slate-100 pt-3">
+          <summary className="cursor-pointer text-xs text-slate-600 marker:text-purple-700">
+            Starting point: <strong className="text-purple-900">{selectedOrigin.shortName}</strong>
+            <span className="ml-2 text-slate-500">Change starting point</span>
+          </summary>
+          <div className="flex flex-wrap items-center gap-2 pt-3 pb-1">
             {ORIGIN_PRESETS.map((preset) => {
               const isSelected = selectedOrigin.id === preset.id;
               return (
                 <button
                   key={preset.id}
                   onClick={() => {
-                    if (preset.id === 'origin-gps') {
+                    if (preset.id === 'origin-current') {
                       handleRequestGps();
                     } else {
                       setSelectedOrigin(preset);
@@ -445,33 +456,11 @@ export function RoutePlanner({
               );
             })}
           </div>
-        </div>
-
-        {/* Mobility Profile Setting Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-slate-500">Mobility Profile:</span>
-            <select
-              value={mobilityProfile}
-              onChange={(e) => setMobilityProfile(e.target.value)}
-              className="text-xs font-bold text-purple-900 bg-purple-50 border border-purple-200 rounded-lg px-2.5 py-1 focus:ring-1 focus:ring-purple-500 outline-none"
-            >
-              <option value="Power Wheelchair">Power Wheelchair (Grade &lt; 5%)</option>
-              <option value="Manual Wheelchair">Manual Wheelchair (Shallowest Slope)</option>
-              <option value="Walker / Cane">Walker / Mobility Cane (Rest Benches)</option>
-              <option value="Visual / Tactile">Low Vision (Tactile Pavers & Braille)</option>
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2 text-slate-500 text-[11px]">
-            <FaClock className="w-3 h-3 text-purple-700" />
-            <span>Real-time elevator telemetry & ADA slope verification active</span>
-          </div>
-        </div>
+        </details>
 
         {/* FAQ Guide Expansion */}
         {showFaqGuide && (
-          <div className="p-4 bg-purple-50 rounded-xl border border-purple-200 space-y-2 text-xs text-purple-950 animate-fadeIn">
+          <div id="accessibility-faqs" className="p-4 bg-purple-50 rounded-xl border border-purple-200 space-y-2 text-xs text-purple-950 animate-fadeIn">
             <div className="font-extrabold text-sm flex items-center justify-between">
               <span>What should I do if an elevator is out of service?</span>
               <button
@@ -493,6 +482,8 @@ export function RoutePlanner({
       </div>
 
       {/* ========================================================================= */}
+      <div className={viewMode === 'corridor_active' && activeRoute ? 'grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-6 items-start' : 'space-y-6'}>
+        <div className="min-w-0">
       {/* 2. MODE A: CORRIDORS CAROUSEL VIEW (WHEN BROWSING CAMPUS DESTINATIONS)   */}
       {/* ========================================================================= */}
       {viewMode === 'carousel' && (
@@ -508,7 +499,7 @@ export function RoutePlanner({
                 </h4>
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Swipe or select any destination card to launch turn-by-turn waypoints and live Google Maps
+                Swipe or select any destination card to launch turn-by-turn waypoints and Google Maps
               </p>
             </div>
 
@@ -615,7 +606,7 @@ export function RoutePlanner({
                         handleSelectCorridor(corridor, false, true);
                       }}
                       className="flex-1 py-2.5 px-3 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
-                      title="Move to corridor with turn-by-turn waypoints and scroll to Google Map below"
+                      title="View turn-by-turn directions beside the map"
                     >
                       <span>View Route & Map</span>
                       <FaArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
@@ -645,7 +636,7 @@ export function RoutePlanner({
       {/* 3. MODE B: DIRECT ACCESSIBLE CAMPUS CORRIDOR WITH TURN-BY-TURN WAYPOINTS  */}
       {/* ========================================================================= */}
       {viewMode === 'corridor_active' && activeRoute && (
-        <div className="bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5 space-y-4 animate-fadeIn">
+        <div className="min-w-0 lg:max-h-[650px] lg:overflow-y-auto bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5 space-y-4 animate-fadeIn">
           {/* Top Bar with Return button & Corridor Title */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-purple-100">
             <div className="space-y-1">
@@ -700,7 +691,7 @@ export function RoutePlanner({
                 onClick={speakInstructions}
                 className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 ${
                   isSpeaking
-                    ? 'bg-rose-600 text-white border-rose-700 animate-pulse'
+                    ? 'bg-rose-600 text-white border-rose-700'
                     : 'bg-white hover:bg-purple-100 text-purple-900 border-purple-200 shadow-2xs'
                 }`}
                 title="Read turn-by-turn accessible guidance aloud"
@@ -737,21 +728,6 @@ export function RoutePlanner({
             </div>
           )}
 
-          {/* Prompt banner to view in single modal */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-xl bg-gradient-to-r from-purple-50 via-indigo-50 to-purple-50 border border-purple-200 text-xs">
-            <span className="text-purple-950 font-semibold flex items-center gap-1.5">
-              <FaExpand className="w-3.5 h-3.5 text-purple-700 shrink-0" />
-              <span>Inspect turn-by-turn corridor and interactive Google Map together in a side-by-side single modal</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setIsUnifiedModalOpen(true)}
-              className="px-3 py-1.5 bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs rounded-lg shadow-sm transition-transform active:scale-95 cursor-pointer shrink-0"
-            >
-              Open Single Modal
-            </button>
-          </div>
-
           {/* Corridor Waypoints Carousel Header */}
           <div className="flex items-center justify-between pt-1">
             <div className="flex items-center gap-2">
@@ -760,10 +736,10 @@ export function RoutePlanner({
               </span>
               <div>
                 <h5 className="font-extrabold text-sm text-slate-900">
-                  Turn-by-Turn Accessible Waypoints
+                  Turn-by-turn directions
                 </h5>
                 <p className="text-[11px] text-slate-500">
-                  Waypoint {(selectedWaypointIndex ?? 0) + 1} of {activeRoute.steps.length} • Overlaid on Google Map below
+                  Waypoint {(selectedWaypointIndex ?? 0) + 1} of {activeRoute.steps.length} • Select a step to highlight it on the map
                 </p>
               </div>
             </div>
@@ -818,7 +794,7 @@ export function RoutePlanner({
           {/* Turn-by-Turn Waypoints Horizontal Carousel */}
           <div
             ref={waypointCarouselRef}
-            className="flex items-stretch gap-3 overflow-x-auto pb-2 pt-1 scroll-smooth snap-x snap-mandatory no-scrollbar"
+            className="flex flex-col gap-3 max-h-[420px] overflow-y-auto p-1 scroll-smooth"
           >
             {activeRoute.steps.map((step, idx) => {
               const isSelected = selectedWaypointIndex === idx;
@@ -829,7 +805,7 @@ export function RoutePlanner({
                 <div
                   key={`waypoint-card-${idx}`}
                   onClick={() => onSelectWaypoint && onSelectWaypoint(idx)}
-                  className={`w-[260px] sm:w-[300px] shrink-0 snap-start p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                  className={`w-full min-w-0 shrink-0 p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
                     isSelected
                       ? 'bg-gradient-to-b from-purple-50 to-white border-purple-600 shadow-lg ring-2 ring-purple-300 scale-[1.01]'
                       : 'bg-slate-50/70 border-slate-200 hover:border-purple-300 hover:bg-white'
@@ -869,12 +845,13 @@ export function RoutePlanner({
             })}
           </div>
 
-          {/* Direction indicator linking to Google Map right under it */}
-          <div className="text-center pt-1 text-xs text-purple-900 font-bold flex items-center justify-center gap-1.5 animate-bounce">
-            <span>👇 Turn-by-Turn Waypoints Overlaid on Live Google Map Below</span>
-          </div>
+
         </div>
       )}
+
+        </div>
+        {mapPanel && <div className="min-w-0">{mapPanel}</div>}
+      </div>
 
       {/* Unified Route & Map Single Modal */}
       <UnifiedRouteModal

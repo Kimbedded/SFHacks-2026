@@ -122,7 +122,7 @@ export async function getOfflineCacheStats(): Promise<OfflineCacheStats> {
       cachedBuildingCount: SFSU_BUILDINGS.length,
       cachedReportsCount: INITIAL_REPORTS.length,
       hasCachedTiles: hasTilesCache,
-      lastUpdated: 'Live Cache Synchronized',
+      lastUpdated: 'Cache synchronized',
     };
   } catch {
     return {

@@ -32,6 +32,13 @@ import {
   Info,
   ChevronDown,
 } from 'lucide-react';
+import {
+  FaWheelchair,
+  FaPhone,
+  FaHeart,
+  FaArrowUpRightFromSquare,
+  FaDownload,
+} from 'react-icons/fa6';
 
 const GOOGLE_MAPS_API_KEY =
   import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
@@ -298,7 +305,7 @@ export default function App() {
         <TransitAlertsBanner alerts={transitAlerts} />
 
         {/* Main Content Area */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+        <main className="flex-1 min-w-0 w-full p-4 sm:p-6 space-y-6">
           {/* TAB 1: CAMPUS NAVIGATOR */}
           {activeTab === 'map' && (
             <div className="space-y-6 animate-fadeIn">
@@ -352,18 +359,15 @@ export default function App() {
                 onOpenHotline={() => setIsHotlineOpen(true)}
                 selectedWaypointIndex={selectedWaypointIndex}
                 onSelectWaypoint={setSelectedWaypointIndex}
-              />
-
-              {/* 2. Interactive Google Map (Below Pathfinder with Waypoints Overlaid) */}
-              <div className="space-y-2">
+                mapPanel={
+              <div className="min-w-0 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
                     <h3 className="font-extrabold text-sm text-slate-800">
-                      Live SFSU Campus Google Map & Barrier Radar
+                      Campus map
                     </h3>
                   </div>
-                  <span className="text-xs text-slate-500 hidden sm:inline">
+                  <span className="text-xs text-slate-500 hidden xl:inline">
                     Tap any building or waypoint marker to inspect accessible corridor details
                   </span>
                 </div>
@@ -380,6 +384,10 @@ export default function App() {
                   destBuilding={destBuilding}
                 />
               </div>
+                }
+              />
+
+
             </div>
           )}
 
@@ -430,50 +438,54 @@ export default function App() {
         />
 
         {/* Global Footer */}
-        <footer className="bg-slate-900 text-slate-400 py-6 px-4 border-t border-slate-800 text-xs">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <span className="text-xl">♿</span>
+        <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs">
+          <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
+            <div className="flex items-center gap-3 text-center md:text-left">
+              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-900/60 text-amber-300 shrink-0">
+                <FaWheelchair className="w-5 h-5" />
+              </span>
               <div>
-                <div className="font-bold text-white">GatorAccess • San Francisco State University</div>
-                <div className="text-[11px] text-slate-400">
-                  Built for SF Hacks 2026 • Powered by Google Maps Platform & Gemini Multimodal AI
-                </div>
+                <div className="font-bold text-white text-sm">GatorAccess</div>
+                <div className="text-[11px] text-slate-400">San Francisco State University</div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4 text-[11px]">
+            <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px]">
               <button
                 onClick={() => setIsHotlineOpen(true)}
-                className="hover:text-amber-400 transition-colors"
+                className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"
               >
+                <FaPhone className="w-3 h-3" />
                 DPRC Hotline: (415) 405-3580
               </button>
-              <span>•</span>
               <button
                 onClick={() => setActiveTab('support')}
-                className="hover:text-amber-400 transition-colors"
+                className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"
               >
+                <FaHeart className="w-3 h-3" />
                 CAPS 24/7: (415) 338-2208
               </button>
-              <span>•</span>
               <a
                 href="https://dprc.sfsu.edu"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-amber-400 transition-colors"
+                className="flex items-center gap-1.5 hover:text-amber-400 transition-colors"
               >
+                <FaArrowUpRightFromSquare className="w-3 h-3" />
                 dprc.sfsu.edu
               </a>
-              <span>•</span>
               <a
                 href="/api/export-archive"
                 download="gatoraccess-sfhacks-2026.tar.gz"
-                className="px-2.5 py-1 bg-purple-800 hover:bg-purple-700 text-amber-300 font-bold rounded-md transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-800 hover:bg-purple-700 text-amber-300 font-bold rounded-lg transition-colors"
               >
-                📦 Download Codebase (.tar.gz)
+                <FaDownload className="w-3 h-3" />
+                Download Codebase
               </a>
-            </div>
+            </nav>
+          </div>
+          <div className="border-t border-slate-800 px-4 py-3 text-center text-[11px] text-slate-500">
+            Built for SF Hacks 2026 • Powered by Google Maps Platform & Gemini Multimodal AI
           </div>
         </footer>
 

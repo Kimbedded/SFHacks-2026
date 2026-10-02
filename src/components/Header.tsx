@@ -54,6 +54,7 @@ export function Header({
             className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               highContrast ? 'bg-amber-400 text-black font-bold' : 'bg-white/10 text-purple-200 hover:text-white'
             }`}
+            aria-pressed={highContrast}
             title="Toggle high contrast accessibility theme"
           >
             <FaEye className="w-3 h-3" />
@@ -66,6 +67,7 @@ export function Header({
             className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               largeText ? 'bg-amber-400 text-black font-bold' : 'bg-white/10 text-purple-200 hover:text-white'
             }`}
+            aria-pressed={largeText}
             title="Toggle larger typography"
           >
             <FaFont className="w-3 h-3" />
@@ -78,6 +80,7 @@ export function Header({
             className={`flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
               visualAlertsOnly ? 'bg-amber-400 text-black font-bold' : 'bg-white/10 text-purple-200 hover:text-white'
             }`}
+            aria-pressed={visualAlertsOnly}
             title="Visual text alerts for auditory barrier accommodation"
           >
             {visualAlertsOnly ? <FaVolumeXmark className="w-3 h-3" /> : <FaVolumeHigh className="w-3 h-3" />}
@@ -87,10 +90,10 @@ export function Header({
       </div>
 
       {/* Main Header Row */}
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div className="w-full px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         {/* Brand */}
-        <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('map')}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 font-black flex items-center justify-center shadow-md border-2 border-amber-300">
+        <div className="flex items-center space-x-3 cursor-pointer min-w-0" onClick={() => setActiveTab('map')}>
+          <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 font-black flex items-center justify-center shadow-md border-2 border-amber-300">
             <FaWheelchair className="w-5 h-5 text-purple-950" />
           </div>
           <div>
@@ -99,11 +102,11 @@ export function Header({
                 GatorAccess <span className="text-amber-400 font-semibold text-xs sm:text-sm">SF State</span>
               </h1>
               <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                Live Campus Barrier Guard
+                Campus accessibility
               </span>
             </div>
             <p className="text-[11px] text-purple-200 leading-tight hidden xs:block">
-              Accessible Pathfinding • Multimodal AI Hazard Scanner • Facilities Triage
+              Find a route. Report a barrier. Get support.
             </p>
           </div>
         </div>
@@ -132,56 +135,20 @@ export function Header({
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="max-w-7xl mx-auto px-4 flex items-center space-x-1 sm:space-x-2 overflow-x-auto no-scrollbar border-t border-purple-800/80">
-        <button
-          onClick={() => setActiveTab('map')}
-          className={`flex items-center gap-2 py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-            activeTab === 'map'
-              ? 'border-amber-400 text-amber-300 bg-white/5'
-              : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <FaRoute className="w-4 h-4" />
-          <span>Campus Navigator</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('report')}
-          className={`flex items-center gap-2 py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-            activeTab === 'report'
-              ? 'border-amber-400 text-amber-300 bg-white/5'
-              : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <FaCamera className="w-4 h-4" />
-          <span>AI Hazard Scanner & Report</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('elevators')}
-          className={`flex items-center gap-2 py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-            activeTab === 'elevators'
-              ? 'border-amber-400 text-amber-300 bg-white/5'
-              : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <FaElevator className="w-4 h-4" />
-          <span>Elevators & Facilities Status</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('support')}
-          className={`flex items-center gap-2 py-2.5 px-3 sm:px-4 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-colors ${
-            activeTab === 'support'
-              ? 'border-amber-400 text-amber-300 bg-white/5'
-              : 'border-transparent text-purple-200 hover:text-white hover:bg-white/5'
-          }`}
-        >
-          <FaHeart className="w-4 h-4" />
-          <span>Gator Rides & CAPS Therapy</span>
-        </button>
-      </div>
+      {/* Each section has a distinct color and a visible text label. */}
+      <nav aria-label="Main navigation" className="w-full px-4 sm:px-6 grid grid-cols-2 md:grid-cols-4 gap-2 py-3 border-t border-white/10">
+        {([
+          { id: 'map', label: 'Campus Navigator', icon: FaRoute, active: 'bg-emerald-100 text-emerald-950 border-emerald-400', idle: 'text-emerald-100 hover:bg-emerald-500/15' },
+          { id: 'report', label: 'AI Hazard Scanner', icon: FaCamera, active: 'bg-rose-100 text-rose-950 border-rose-400', idle: 'text-rose-100 hover:bg-rose-500/15' },
+          { id: 'elevators', label: 'Facilities Status', icon: FaElevator, active: 'bg-sky-100 text-sky-950 border-sky-400', idle: 'text-sky-100 hover:bg-sky-500/15' },
+          { id: 'support', label: 'GatorRides & CAPS', icon: FaHeart, active: 'bg-violet-100 text-violet-950 border-violet-400', idle: 'text-violet-100 hover:bg-violet-500/15' },
+        ] as const).map(({ id, label, icon: Icon, active, idle }) => (
+          <button key={id} onClick={() => setActiveTab(id)} aria-current={activeTab === id ? 'page' : undefined}
+            className={`min-w-0 flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${activeTab === id ? active : `border-white/10 ${idle}`}`}>
+            <Icon className="w-4 h-4 shrink-0" /><span>{label}</span>
+          </button>
+        ))}
+      </nav>
     </header>
   );
 }

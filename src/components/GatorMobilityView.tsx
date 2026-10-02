@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { CampusBuilding, AssistanceRequest } from '../types';
 import {
   FaWheelchair,
-  FaSquareParking,
   FaCar,
   FaHeart,
   FaPhone,
@@ -10,9 +9,6 @@ import {
   FaLocationDot,
   FaCircleCheck,
   FaShieldHalved,
-  FaArrowRight,
-  FaLifeRing,
-  FaHandsHoldingCircle,
 } from 'react-icons/fa6';
 
 interface GatorMobilityViewProps {
@@ -22,11 +18,10 @@ interface GatorMobilityViewProps {
 
 export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityViewProps) {
   const [pickupLocation, setPickupLocation] = useState('19th Ave & Holloway Transit Hub');
-  const [dropoffLocation, setDropoffLocation] = useState('Cesar Chavez Student Center Plaza');
+  const [dropoffLocation, setDropoffLocation] = useState(buildings[0] ? `${buildings[0].name} (${buildings[0].code})` : 'Lot 20 ADA Garage Elevator Bridge');
   const [mobilityNeeds, setMobilityNeeds] = useState('Wheelchair Accessible Ramp Cart');
   const [requesterName, setRequesterName] = useState('');
   const [requesterPhone, setRequesterPhone] = useState('');
-  const [notes, setNotes] = useState('');
 
   const [activeRequest, setActiveRequest] = useState<AssistanceRequest | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +44,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
         vehicleAssigned: 'Gator Cart #3 (Electric 6-Seater with Flip-Down ADA Ramp)',
         driverName: 'Sammy R. (Gator Mobility Operations)',
         requestedAt: 'Just now',
-        notes,
+        notes: '',
       };
 
       setActiveRequest(simulatedRequest);
@@ -58,21 +53,21 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 animate-fadeIn">
+    <div className="w-full min-w-0 space-y-6 animate-fadeIn">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-900 text-white p-6 rounded-2xl shadow-xl border border-purple-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-purple-950 text-white p-6 rounded-2xl shadow-sm border border-purple-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="p-1 rounded-md bg-amber-400 text-purple-950 font-bold text-xs flex items-center gap-1">
               <FaWheelchair className="w-3 h-3 text-purple-950" />
               FREE ON-CAMPUS SERVICE
             </span>
             <h2 className="text-xl font-extrabold tracking-tight text-white">
-              Gator Mobility Cart Shuttle & Accessible Parking Transit
+              Rides & support
             </h2>
           </div>
           <p className="text-xs sm:text-sm text-purple-200">
-            If an elevator is down or a slope exceeds your mobility limit, Gator Mobility picks you up anywhere on campus or Lot 20 ADA parking and drives you to class.
+            Request an accessible campus ride, talk to a counselor, or arrange a safety escort.
           </p>
         </div>
 
@@ -85,30 +80,30 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-6 items-stretch">
         {/* Left Column: Gator Mobility Shuttle Dispatch */}
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-5">
+        <div className="min-w-0 bg-white rounded-2xl shadow-sm border border-violet-200 border-t-4 border-t-violet-600 p-5 sm:p-6 space-y-5">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
               <FaCar className="w-5 h-5 text-purple-800" />
             </div>
             <div>
               <h3 className="font-extrabold text-base text-slate-900 flex items-center gap-1.5">
-                <span>Request Gator Cart Pickup</span>
+                <span>Request a campus ride</span>
                 <FaWheelchair className="w-3.5 h-3.5 text-blue-600" />
               </h3>
               <p className="text-xs text-slate-500">
-                Direct electric golf cart ride across SFSU campus for students with temporary or permanent mobility needs.
+                Accessible cart rides between campus locations.
               </p>
             </div>
           </div>
 
           {activeRequest ? (
-            <div className="p-5 rounded-2xl bg-gradient-to-b from-purple-50 to-white border-2 border-purple-300 space-y-4 animate-fadeIn">
+            <div role="status" aria-live="polite" className="p-5 rounded-2xl bg-gradient-to-b from-purple-50 to-white border-2 border-purple-300 space-y-4 animate-fadeIn">
               <div className="flex items-center justify-between">
                 <span className="px-2.5 py-1 rounded-full text-xs font-black bg-purple-700 text-white uppercase tracking-wider flex items-center gap-1">
                   <FaCircleCheck className="w-3 h-3 text-emerald-400" />
-                  Vehicle Dispatched
+                  Demo ride confirmed
                 </span>
                 <span className="text-xs font-mono font-bold text-purple-900 flex items-center gap-1">
                   <FaClock className="w-3 h-3 text-purple-600" />
@@ -136,7 +131,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
 
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 font-medium flex items-center gap-2">
                 <FaWheelchair className="w-4 h-4 text-purple-900 shrink-0" />
-                <span>Driver is on their way. Look for the purple & gold electric cart with the universal wheelchair emblem.</span>
+                <span>This is a demo request. To arrange a real ride, call mobility dispatch.</span>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
@@ -145,7 +140,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
                   className="flex-1 py-2 px-3 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl text-center shadow-sm flex items-center justify-center gap-1.5"
                 >
                   <FaPhone className="w-3 h-3" />
-                  <span>Call Driver Directly</span>
+                  <span>Call mobility dispatch</span>
                 </a>
                 <button
                   onClick={() => setActiveRequest(null)}
@@ -156,16 +151,17 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
               </div>
             </div>
           ) : (
-            <form onSubmit={handleRequestRide} className="space-y-4 text-xs">
+            <form onSubmit={handleRequestRide} className="space-y-4 text-sm">
+              <p className="text-xs text-slate-500">Demo booking · Call mobility dispatch to arrange a real ride.</p>
               <div>
-                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                <label htmlFor="pickupLocation" className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
                   <FaLocationDot className="w-3 h-3 text-emerald-600" />
                   Pickup Point
                 </label>
-                <select
+                <select id="pickupLocation"
                   value={pickupLocation}
                   onChange={(e) => setPickupLocation(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-xs font-medium"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-sm font-medium"
                 >
                   <option value="19th Ave & Holloway Transit Hub">19th Ave & Holloway Transit Hub (Muni M-Ocean View)</option>
                   <option value="Lot 20 Parking Garage Level 1 ADA Stalls">Lot 20 Parking Garage (ADA Stalls & Bridge)</option>
@@ -178,14 +174,14 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                <label htmlFor="dropoffLocation" className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
                   <FaLocationDot className="w-3 h-3 text-amber-600" />
-                  Destination on Campus
+                  Destination
                 </label>
-                <select
+                <select id="dropoffLocation"
                   value={dropoffLocation}
                   onChange={(e) => setDropoffLocation(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-xs font-medium"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-sm font-medium"
                 >
                   {buildings.map((b) => (
                     <option key={b.id} value={`${b.name} (${b.code})`}>
@@ -198,14 +194,14 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
+                <label htmlFor="mobilityNeeds" className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
                   <FaWheelchair className="w-3 h-3 text-blue-600" />
-                  Mobility Assistance & Accommodation Type
+                  Accessibility needs
                 </label>
-                <select
+                <select id="mobilityNeeds"
                   value={mobilityNeeds}
                   onChange={(e) => setMobilityNeeds(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-xs font-medium"
+                  className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white text-sm font-medium"
                 >
                   <option value="Wheelchair Accessible Ramp Cart">Power Wheelchair / Manual Wheelchair Flip-Ramp Cart</option>
                   <option value="Standard Low-Floor Golf Cart">Standard Low-Floor Golf Cart (Walking Injury / Sprain)</option>
@@ -216,24 +212,24 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Your Name</label>
-                  <input
+                  <label htmlFor="requesterName" className="block text-slate-700 font-bold mb-1">Your Name</label>
+                  <input id="requesterName"
                     type="text"
                     required
                     placeholder="e.g. Jordan K."
                     value={requesterName}
                     onChange={(e) => setRequesterName(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Callback Phone (SMS ETA)</label>
-                  <input
+                  <label htmlFor="requesterPhone" className="block text-slate-700 font-bold mb-1">Phone (optional)</label>
+                  <input id="requesterPhone"
                     type="tel"
                     placeholder="(415) 555-0100"
                     value={requesterPhone}
                     onChange={(e) => setRequesterPhone(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 text-sm"
                   />
                 </div>
               </div>
@@ -244,22 +240,22 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
                 className="w-full py-3 bg-purple-900 hover:bg-purple-800 text-amber-300 font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 <FaCar className="w-4 h-4" />
-                <span>{isSubmitting ? 'Requesting Shuttle...' : 'Dispatch Gator Mobility Shuttle'}</span>
+                <span>{isSubmitting ? 'Requesting Shuttle...' : 'Request ride'}</span>
               </button>
             </form>
           )}
         </div>
 
         {/* Right Column: CAPS Therapy & Safety Escort Services */}
-        <div className="space-y-6">
+        <div className="min-w-0 flex flex-col gap-6">
           {/* CAPS Urgent Emotional / Accessibility Support */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-4">
+          <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-blue-200 border-t-4 border-t-blue-600 p-5 sm:p-6 space-y-4">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center">
                 <FaHeart className="w-5 h-5 text-blue-700" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-slate-900">CAPS Counseling & Crisis Support</h3>
+                <h3 className="font-extrabold text-base text-slate-900">Counseling support</h3>
                 <p className="text-xs text-slate-500">
                   Free psychological services and neurodivergent accommodations for enrolled SFSU students.
                 </p>
@@ -296,13 +292,13 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
           </div>
 
           {/* UPD 24/7 Physical Safety Escort */}
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 space-y-4">
+          <div className="flex-1 min-w-0 bg-white rounded-2xl shadow-sm border border-amber-200 border-t-4 border-t-amber-500 p-5 sm:p-6 space-y-4">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center">
                 <FaShieldHalved className="w-5 h-5 text-amber-700" />
               </div>
               <div>
-                <h3 className="font-extrabold text-base text-slate-900">24/7 Campus Safety Physical Escort</h3>
+                <h3 className="font-extrabold text-base text-slate-900">Campus safety escort</h3>
                 <p className="text-xs text-slate-500">
                   Uniformed community service specialists walk or roll with you anywhere on campus after dark.
                 </p>

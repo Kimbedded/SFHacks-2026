@@ -24,7 +24,7 @@ export function TransitAlertsBanner({ alerts }: TransitAlertsBannerProps) {
 
           <div className="truncate text-slate-300">
             <span className="font-semibold text-amber-300 mr-1.5">
-              {activeIssueAlerts.length > 0 ? 'Transit Advisory:' : 'Live Status:'}
+              {activeIssueAlerts.length > 0 ? 'Transit Advisory:' : 'Transit status:'}
             </span>
             <span>{alerts[0].headline} — {alerts[0].details}</span>
           </div>

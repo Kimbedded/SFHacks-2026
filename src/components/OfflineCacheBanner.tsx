@@ -58,7 +58,7 @@ export function OfflineCacheBanner() {
     <div className="w-full">
       {/* Critical Offline Notice Bar (visible when user loses signal) */}
       {!isOnline && (
-        <div className="bg-amber-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md transition-all animate-pulse">
+        <div className="bg-amber-600 text-white px-4 py-2 text-xs flex items-center justify-between shadow-md transition-all">
           <div className="flex items-center gap-2 max-w-4xl mx-auto">
             <WifiOff className="w-4 h-4 shrink-0 text-amber-200" />
             <span>
@@ -142,7 +142,7 @@ export function OfflineCacheBanner() {
               </span>
               <span className="px-2.5 py-1 bg-slate-900 rounded border border-slate-700 flex items-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                Live Map Tiles Cached
+                Map tiles cached
               </span>
               <span className="px-2.5 py-1 bg-slate-900 rounded border border-slate-700 flex items-center gap-1.5">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
