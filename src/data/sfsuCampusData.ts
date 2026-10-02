@@ -1132,7 +1132,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-lot20-bridge',
-    photoUrl: '/locations/quad.jpg',
+    photoUrl: '/locations/lot20.jpg',
     title: 'Lot 20 ADA Garage to Quad',
     subtitle: 'Direct covered pedestrian bridge connecting ADA parking to Main Quad',
     category: 'Parking & Transit',
