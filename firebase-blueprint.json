@@ -1,0 +1,195 @@
+{
+  "entities": {
+    "ElevatorStatus": {
+      "title": "ElevatorStatus",
+      "description": "Real-time operational status and accessibility metrics for campus elevators.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique elevator identifier"
+        },
+        "buildingId": {
+          "type": "string",
+          "description": "Associated SFSU building code or ID"
+        },
+        "buildingName": {
+          "type": "string",
+          "description": "Display name of the building"
+        },
+        "location": {
+          "type": "string",
+          "description": "Specific wing, tower or floor range"
+        },
+        "isOperational": {
+          "type": "boolean",
+          "description": "Whether the elevator is currently functional"
+        },
+        "statusReason": {
+          "type": "string",
+          "description": "Operational note or maintenance reason"
+        },
+        "workOrderId": {
+          "type": "string",
+          "description": "Active Facilities Services work order ticket number"
+        },
+        "outageReportCount": {
+          "type": "number",
+          "description": "Community confirmed reports of elevator malfunction"
+        },
+        "lastChecked": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of most recent verification"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last status modification"
+        }
+      },
+      "required": ["id", "buildingId", "buildingName", "isOperational", "lastChecked"]
+    },
+    "ElevatorStatusLog": {
+      "title": "ElevatorStatusLog",
+      "description": "Historical audit entry recording status transitions for elevators.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Log identifier"
+        },
+        "elevatorId": {
+          "type": "string",
+          "description": "Target elevator ID"
+        },
+        "previousStatus": {
+          "type": "boolean",
+          "description": "Operational status prior to change"
+        },
+        "newStatus": {
+          "type": "boolean",
+          "description": "New operational status"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Technician or dispatcher note"
+        },
+        "changedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of change"
+        }
+      },
+      "required": ["id", "elevatorId", "newStatus", "changedAt"]
+    },
+    "FacilityStatus": {
+      "title": "FacilityStatus",
+      "description": "SFSU campus physical accessibility facility status, automated work order, and repair pipeline.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Facility record ID"
+        },
+        "facilityType": {
+          "type": "string",
+          "enum": ["elevator", "power_door", "ramp", "accessible_restroom", "lift", "braille_beacon"],
+          "description": "Physical infrastructure category"
+        },
+        "buildingId": {
+          "type": "string",
+          "description": "Associated SFSU building ID"
+        },
+        "buildingName": {
+          "type": "string",
+          "description": "Display name of SFSU building"
+        },
+        "title": {
+          "type": "string",
+          "description": "Brief description of the barrier or facility status"
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed explanation of work order or condition"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["operational", "reported_broken", "work_order_dispatched", "parts_on_order", "resolved"],
+          "description": "Current lifecycle status"
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "urgent_accessibility"],
+          "description": "Urgency level for mobility-impaired individuals"
+        },
+        "workOrderNumber": {
+          "type": "string",
+          "description": "SFSU Facilities ticket reference"
+        },
+        "reportedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Incident report timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Latest update timestamp"
+        },
+        "upvotes": {
+          "type": "number",
+          "description": "Community verification votes"
+        }
+      },
+      "required": ["id", "facilityType", "buildingId", "buildingName", "title", "status", "priority", "reportedAt"]
+    },
+    "FacilityWorkLog": {
+      "title": "FacilityWorkLog",
+      "description": "Subcollection timeline entries for facility repair updates.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Log record ID"
+        },
+        "workOrderId": {
+          "type": "string",
+          "description": "Parent facility work order ID"
+        },
+        "message": {
+          "type": "string",
+          "description": "Update note or milestone"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status at time of update"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of dispatch log"
+        }
+      },
+      "required": ["id", "workOrderId", "message", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/elevators/{elevatorId}": {
+      "schema": "ElevatorStatus",
+      "description": "Stores real-time status, health, and outage reports for all campus elevators."
+    },
+    "/elevators/{elevatorId}/statusLogs/{logId}": {
+      "schema": "ElevatorStatusLog",
+      "description": "Audit subcollection of historical status transitions per elevator for scalable monitoring."
+    },
+    "/facilities/{facilityId}": {
+      "schema": "FacilityStatus",
+      "description": "Stores campus accessibility facility maintenance tickets, work orders, and repair statuses."
+    },
+    "/facilities/{facilityId}/workLogs/{logId}": {
+      "schema": "FacilityWorkLog",
+      "description": "Subcollection of timestamped technician notes and status updates for a facility work order."
+    }
+  }
+}

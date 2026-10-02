@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isValidElevator(data) {
+      return data.keys().hasAll(['id', 'buildingId', 'buildingName', 'isOperational', 'lastChecked'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 100
+        && data.buildingId is string && data.buildingId.size() > 0 && data.buildingId.size() <= 50
+        && data.buildingName is string && data.buildingName.size() <= 150
+        && data.isOperational is bool
+        && data.lastChecked is string && data.lastChecked.size() <= 50
+        && (!('statusReason' in data) || (data.statusReason is string && data.statusReason.size() <= 500))
+        && (!('outageReportCount' in data) || (data.outageReportCount is number && data.outageReportCount >= 0))
+        && (!('location' in data) || (data.location is string && data.location.size() <= 200))
+        && (!('workOrderId' in data) || (data.workOrderId is string && data.workOrderId.size() <= 100));
+    }
+
+    function isValidElevatorLog(data, elevatorId) {
+      return data.keys().hasAll(['id', 'elevatorId', 'newStatus', 'changedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 100
+        && data.elevatorId == elevatorId
+        && data.newStatus is bool
+        && data.changedAt is string && data.changedAt.size() <= 50
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    function isValidFacility(data) {
+      return data.keys().hasAll(['id', 'facilityType', 'buildingId', 'buildingName', 'title', 'status', 'priority', 'reportedAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 100
+        && data.facilityType in ['elevator', 'power_door', 'ramp', 'accessible_restroom', 'lift', 'braille_beacon']
+        && data.buildingId is string && data.buildingId.size() > 0 && data.buildingId.size() <= 50
+        && data.buildingName is string && data.buildingName.size() <= 150
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.status in ['operational', 'reported_broken', 'work_order_dispatched', 'parts_on_order', 'resolved']
+        && data.priority in ['low', 'medium', 'high', 'urgent_accessibility']
+        && data.reportedAt is string && data.reportedAt.size() <= 50
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
+        && (!('upvotes' in data) || (data.upvotes is number && data.upvotes >= 0))
+        && (!('workOrderNumber' in data) || (data.workOrderNumber is string && data.workOrderNumber.size() <= 100));
+    }
+
+    function isValidFacilityLog(data, facilityId) {
+      return data.keys().hasAll(['id', 'workOrderId', 'message', 'createdAt'])
+        && data.id is string && data.id.size() > 0 && data.id.size() <= 100
+        && data.workOrderId == facilityId
+        && data.message is string && data.message.size() > 0 && data.message.size() <= 500
+        && data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    // Elevators collection
+    match /elevators/{elevatorId} {
+      allow read: if true;
+      allow create: if isValidElevator(request.resource.data);
+      allow update: if isValidElevator(request.resource.data);
+      allow delete: if false;
+
+      // Status history logs subcollection
+      match /statusLogs/{logId} {
+        allow read: if true;
+        allow create: if isValidElevatorLog(request.resource.data, elevatorId);
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // Facilities work orders collection
+    match /facilities/{facilityId} {
+      allow read: if true;
+      allow create: if isValidFacility(request.resource.data);
+      allow update: if isValidFacility(request.resource.data);
+      allow delete: if false;
+
+      // Timeline updates subcollection
+      match /workLogs/{logId} {
+        allow read: if true;
+        allow create: if isValidFacilityLog(request.resource.data, facilityId);
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
+    // Connection testing doc
+    match /test/connection {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

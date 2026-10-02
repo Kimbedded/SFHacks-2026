@@ -35,6 +35,7 @@ export interface AccessibilityReport {
   title: string;
   description: string;
   category: HazardCategory;
+  barrierType?: string;
   locationName: string;
   buildingId?: string;
   coordinates: Coordinates;
@@ -66,6 +67,8 @@ export interface CampusBuilding {
     status: 'operational' | 'down' | 'maintenance' | 'intermittent';
     lastChecked: string;
     alternativePath: string;
+    location?: string;
+    statusReason?: string;
   }[];
   amenities: string[];
   notes?: string;

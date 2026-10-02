@@ -9,6 +9,8 @@ import { Header } from './components/Header';
 import { QuotaBanner } from './components/QuotaBanner';
 import { OfflineCacheBanner } from './components/OfflineCacheBanner';
 import { TransitAlertsBanner } from './components/TransitAlertsBanner';
+import { testFirestoreConnection } from './firebase/config';
+import { subscribeToElevators, updateElevatorStatus } from './firebase/elevatorFacilityService';
 import { CampusMap } from './components/CampusMap';
 import { RoutePlanner } from './components/RoutePlanner';
 import { SubmitReportView } from './components/SubmitReportView';
@@ -57,8 +59,10 @@ export default function App() {
   const [visualAlertsOnly, setVisualAlertsOnly] = useState(false);
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(true);
 
-  // Fetch live reports and building statuses from API
+  // Fetch live reports and building statuses from API & sync with Firebase
   useEffect(() => {
+    testFirestoreConnection().catch(console.warn);
+
     fetch('/api/reports')
       .then((res) => res.json())
       .then((data) => {
@@ -76,11 +80,40 @@ export default function App() {
         }
       })
       .catch((err) => console.log('Using default buildings', err));
+
+    // Live real-time elevator synchronization across campus via Firestore
+    const unsub = subscribeToElevators((fbElevators) => {
+      setBuildings((prev) =>
+        prev.map((bldg) => ({
+          ...bldg,
+          elevators: bldg.elevators.map((elev) => {
+            const fb = fbElevators.find((item) => item.id === elev.id);
+            if (fb) {
+              return {
+                ...elev,
+                status: (fb.isOperational ? 'operational' : 'down') as any,
+                statusReason: fb.statusReason || elev.statusReason,
+              };
+            }
+            return elev;
+          }),
+        }))
+      );
+    });
+
+    return () => unsub();
   }, []);
 
   // When an elevator is toggled in Dashboard
   const handleToggleElevator = async (elevatorId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'operational' ? 'down' : 'operational';
+
+    try {
+      // Sync to Firebase Firestore with audit log
+      await updateElevatorStatus(elevatorId, newStatus === 'operational');
+    } catch (fbErr) {
+      console.warn('Firebase elevator update warning:', fbErr);
+    }
 
     try {
       const response = await fetch(`/api/elevators/${elevatorId}/status`, {
