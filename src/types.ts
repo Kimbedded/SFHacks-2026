@@ -1,3 +1,5 @@
+export * from './types/index';
+
 export interface Coordinates {
   lat: number;
   lng: number;
