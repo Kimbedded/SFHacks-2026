@@ -118,7 +118,7 @@ export interface AccessibleRouteOption {
     coordinates: Coordinates;
   }[];
   pathCoordinates: Coordinates[];
-  elevationGainMeters: number;
+  elevationGainMeters: number | null;
   isFullyADACompliant: boolean;
   warningNotice?: string;
   googleMapsUrl?: string;
@@ -146,4 +146,3 @@ export interface VoiceAssistResponse {
   };
   suggestedQuickActions?: string[];
 }
-

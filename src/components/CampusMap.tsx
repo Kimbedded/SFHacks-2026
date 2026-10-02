@@ -537,6 +537,11 @@ export function CampusMap({
             <div className="text-[10px] text-blue-200">
               {activeRoute.distanceMeters}m • ~{activeRoute.estimatedMinutes} mins • {activeRoute.pathCoordinates.length} waypoints
             </div>
+            <div className="text-[10px] text-blue-200">
+              {activeRoute.elevationGainMeters != null
+                ? `Estimated elevation gain: ${activeRoute.elevationGainMeters} m`
+                : 'Elevation gain unavailable'}
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">

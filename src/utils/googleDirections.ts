@@ -1,5 +1,30 @@
 import { Coordinates } from '../types';
 
+/** Estimated cumulative ascent along a real route; missing data stays unavailable. */
+export async function getRouteElevationGain(path: Coordinates[]): Promise<number | null> {
+  if (path.length < 2 || typeof window === 'undefined' || !window.google?.maps?.importLibrary) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const request = async () => {
+      const { ElevationService } = await google.maps.importLibrary('elevation') as google.maps.ElevationLibrary;
+      // Preserve the route shape within the service's 512-coordinate limit.
+      const sampledPath = path.length <= 512 ? path : Array.from({ length: 512 }, (_, i) => path[Math.round(i * (path.length - 1) / 511)]);
+      const { results } = await new ElevationService().getElevationAlongPath({ path: sampledPath, samples: 128 });
+      if (results.length < 2 || results.some((point) => !Number.isFinite(point.elevation))) return null;
+      const gain = results.slice(1).reduce((total, point, i) => total + Math.max(0, point.elevation - results[i].elevation), 0);
+      return Math.round(gain * 10) / 10;
+    };
+    return await Promise.race([
+      request(),
+      new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 5000); }),
+    ]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export interface GoogleDirectionsResult {
   pathCoordinates: Coordinates[];
   distanceMeters: number;

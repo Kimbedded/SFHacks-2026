@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { TransitAlert } from '../types';
-import { Train, Bus, AlertCircle, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
+import { Train, AlertCircle, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 
 interface TransitAlertsBannerProps {
   alerts: TransitAlert[];
+  error?: string;
 }
 
-export function TransitAlertsBanner({ alerts }: TransitAlertsBannerProps) {
+export function TransitAlertsBanner({ alerts, error }: TransitAlertsBannerProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  if (alerts.length === 0) return null;
+  if (error || alerts.length === 0) return (
+    <div role="status" className="bg-slate-900 text-slate-200 px-4 py-2 text-xs">
+      {error || 'Waiting for BART updates from Firestore.'}
+    </div>
+  );
+  const stale = alerts.some((alert) => Date.now() - Date.parse(alert.lastUpdated) > 10 * 60 * 1000);
 
   const activeIssueAlerts = alerts.filter((a) => a.status !== 'accessible');
 
@@ -19,10 +25,11 @@ export function TransitAlertsBanner({ alerts }: TransitAlertsBannerProps) {
         <div className="flex items-center space-x-2.5 overflow-hidden">
           <div className="flex items-center space-x-1 shrink-0 px-2 py-0.5 rounded bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 font-bold">
             <Train className="w-3.5 h-3.5" />
-            <span>SFSU Transit & BART</span>
+            <span>BART Live Updates</span>
           </div>
 
           <div className="truncate text-slate-300">
+            {stale && <span className="text-amber-300 mr-2">Saved data may be outdated.</span>}
             <span className="font-semibold text-amber-300 mr-1.5">
               {activeIssueAlerts.length > 0 ? 'Transit Advisory:' : 'Transit status:'}
             </span>
@@ -34,7 +41,7 @@ export function TransitAlertsBanner({ alerts }: TransitAlertsBannerProps) {
           onClick={() => setIsExpanded(!isExpanded)}
           className="shrink-0 ml-2 px-2 py-1 rounded hover:bg-white/10 text-indigo-200 hover:text-white flex items-center gap-1 font-medium transition-colors"
         >
-          <span>{alerts.length} Lines</span>
+          <span>{alerts.length} Updates</span>
           {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </button>
       </div>
@@ -49,11 +56,7 @@ export function TransitAlertsBanner({ alerts }: TransitAlertsBannerProps) {
               <div>
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <span className="font-bold text-white flex items-center gap-1.5">
-                    {alert.service.includes('BART') ? (
-                      <Bus className="w-3.5 h-3.5 text-blue-400" />
-                    ) : (
-                      <Train className="w-3.5 h-3.5 text-red-400" />
-                    )}
+                    <Train className="w-3.5 h-3.5 text-blue-400" />
                     {alert.service}
                   </span>
                   <span
@@ -63,11 +66,12 @@ export function TransitAlertsBanner({ alerts }: TransitAlertsBannerProps) {
                         : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}
                   >
-                    {alert.status === 'accessible' ? 'ADA Ready' : 'Notice'}
+                    {alert.status === 'accessible' ? 'No reported issues' : 'Notice'}
                   </span>
                 </div>
                 <div className="font-semibold text-slate-200 text-[11px]">{alert.stopName}</div>
                 <p className="text-slate-400 text-[11px] mt-1">{alert.details}</p>
+                <p className="text-slate-400 mt-1">Updated: {new Date(alert.lastUpdated).toLocaleString()}</p>
               </div>
 
               <div className="pt-2 border-t border-slate-800/80 text-[10px] text-amber-200/90 bg-amber-950/20 p-1.5 rounded">

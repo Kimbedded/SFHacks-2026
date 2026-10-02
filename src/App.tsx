@@ -9,6 +9,7 @@ import { Header } from './components/Header';
 import { QuotaBanner } from './components/QuotaBanner';
 import { OfflineCacheBanner } from './components/OfflineCacheBanner';
 import { TransitAlertsBanner } from './components/TransitAlertsBanner';
+import { subscribeToTransitAlerts } from './firebase/transitService';
 import { testFirestoreConnection } from './firebase/config';
 import { subscribeToElevators, updateElevatorStatus } from './firebase/elevatorFacilityService';
 import { CampusMap } from './components/CampusMap';
@@ -18,8 +19,8 @@ import { ElevatorStatusDashboard } from './components/ElevatorStatusDashboard';
 import { GatorMobilityView } from './components/GatorMobilityView';
 import { HotlineModal } from './components/HotlineModal';
 import { GeminiVoiceWidget } from './components/GeminiVoiceWidget';
-import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
-import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
+import { SFSU_BUILDINGS, INITIAL_REPORTS } from './data/sfsuCampusData';
+import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates, TransitAlert } from './types';
 import { LoginPage, AppUser } from './components/LoginPage';
 import {
   Compass,
@@ -59,7 +60,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'map' | 'report' | 'elevators' | 'support'>('map');
   const [buildings, setBuildings] = useState<CampusBuilding[]>(SFSU_BUILDINGS);
   const [reports, setReports] = useState<AccessibilityReport[]>(INITIAL_REPORTS);
-  const [transitAlerts] = useState(TRANSIT_ALERTS);
+  const [transitAlerts, setTransitAlerts] = useState<TransitAlert[]>([]);
+  const [transitError, setTransitError] = useState<string>();
+
+  useEffect(() => subscribeToTransitAlerts((alerts) => {
+    setTransitAlerts(alerts);
+    setTransitError(undefined);
+  }, () => setTransitError('BART updates unavailable. Check bart.gov for current status.')), []);
 
   // Navigation State
   const [originBuilding, setOriginBuilding] = useState<CampusBuilding | null>(SFSU_BUILDINGS[10]); // Transit hub default
@@ -339,7 +346,7 @@ export default function App() {
         />
 
         {/* SFSU Transit & BART Alert Bar */}
-        <TransitAlertsBanner alerts={transitAlerts} />
+        <TransitAlertsBanner alerts={transitAlerts} error={transitError} />
 
         {/* Main Content Area */}
         <main className="flex-1 min-w-0 w-full p-4 sm:p-6 space-y-6">

@@ -37,7 +37,7 @@ import {
   FaShieldHalved,
   FaPhone,
 } from 'react-icons/fa6';
-import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl } from '../utils/googleDirections';
+import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl, getRouteElevationGain } from '../utils/googleDirections';
 import { UnifiedRouteModal } from './UnifiedRouteModal';
 
 interface RoutePlannerProps {
@@ -232,14 +232,23 @@ export function RoutePlanner({
   }, []);
 
   // Sync when destBuilding is selected externally (e.g. from map or voice)
+  // destBuilding lives in App and survives tab switches, so only react to changes made while
+  // mounted (or to origin changes while a route is already open) - never on a fresh mount.
+  const lastSyncedDestId = useRef<string | undefined>(destBuilding?.id);
   useEffect(() => {
-    if (destBuilding) {
-      const match = SFSU_ACCESSIBLE_CORRIDORS.find(
-        (c) => c.destinationBuildingId === destBuilding.id
-      );
-      if (match) {
-        handleSelectCorridor(match, false);
-      }
+    if (!destBuilding) {
+      lastSyncedDestId.current = undefined;
+      return;
+    }
+    const destChanged = lastSyncedDestId.current !== destBuilding.id;
+    lastSyncedDestId.current = destBuilding.id;
+    if (!destChanged && viewMode !== 'corridor_active') return;
+
+    const match = SFSU_ACCESSIBLE_CORRIDORS.find(
+      (c) => c.destinationBuildingId === destBuilding.id
+    );
+    if (match) {
+      handleSelectCorridor(match, false);
     }
   }, [destBuilding, selectedOrigin]);
 
@@ -386,7 +395,8 @@ export function RoutePlanner({
         distanceMeters: googleDirections?.distanceMeters || corridor.distanceMeters,
         estimatedMinutes: googleDirections?.estimatedMinutes || corridor.estimatedMinutes,
         maxSlopeGrade: corridor.maxSlopeGrade,
-        elevationGainMeters: 3.2,
+        elevationGainMeters: googleDirections && googleDirections.source !== 'fallback'
+          ? await getRouteElevationGain(pathCoordinates) : null,
         isFullyADACompliant: false,
         warningNotice: hasElevatorOutage ? corridor.elevatorDownWarning : undefined,
         pathCoordinates,
@@ -529,7 +539,8 @@ export function RoutePlanner({
           distanceMeters: directions?.distanceMeters || 350,
           estimatedMinutes: directions?.estimatedMinutes || 5,
           maxSlopeGrade: 3.5,
-          elevationGainMeters: 2.5,
+          elevationGainMeters: directions && directions.source !== 'fallback'
+            ? await getRouteElevationGain(directions.pathCoordinates) : null,
           isFullyADACompliant: true,
           pathCoordinates:
             directions && directions.pathCoordinates.length > 1
@@ -987,10 +998,11 @@ export function RoutePlanner({
             {/* Quick Search & Carousel Arrows */}
             <div className="flex items-center gap-2">
               <div className="relative">
-                <FaMagnifyingGlass className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
+                <FaMagnifyingGlass aria-hidden="true" className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Filter corridors..."
+                  placeholder="Search for.."
+                  aria-label="Search corridors"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-7 pr-3 py-1.5 text-xs bg-slate-100 border border-slate-200 rounded-xl focus:ring-1 focus:ring-purple-600 outline-none w-36 sm:w-48"
@@ -1329,16 +1341,6 @@ export function RoutePlanner({
             })}
           </div>
 
-          {/* On-Site Verification Warning & ADA Disclaimer */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
-            <FaShieldHalved className="w-4 h-4 mt-0.5 text-purple-700 shrink-0" />
-            <div className="space-y-1">
-              <div className="text-sm font-bold text-slate-900">On-site verification required</div>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Verify this route on site before use. Conditions can change with weather or maintenance. Neither GatorAccess AI nor Google Maps provides an official ADA determination.
-              </p>
-            </div>
-          </div>
         </div>
       )}
 
