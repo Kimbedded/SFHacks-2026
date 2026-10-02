@@ -663,6 +663,15 @@ export function RoutePlanner({
                   const hasBrokenElevator =
                     bldg?.elevators.some((e) => e.status === 'down') ||
                     Boolean(corridor.elevatorDownWarning);
+                  const hasBarrier = reports.some(
+                    (r) =>
+                      r.status !== 'resolved' &&
+                      (r.buildingId === corridor.destinationBuildingId ||
+                        r.buildingId === corridor.id ||
+                        (r.locationName &&
+                          r.locationName.toLowerCase().includes(corridor.destinationName.toLowerCase())))
+                  );
+                  const hasAccessibilityIssue = hasBrokenElevator || hasBarrier;
 
                   return (
                     <div
@@ -687,24 +696,48 @@ export function RoutePlanner({
                         )}
                       </div>
 
-                      {/* Location Title & Green Wheelchair Icon (Bigger bold title, no acronym, no gray subtitle) */}
+                      {/* Location Title & Accessible Status Icon (Red if issue, Green if 100% accessible) */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs"
-                            title="Zero-Stairs Accessible"
-                          >
-                            <FaWheelchair className="w-3 h-3" />
-                          </span>
+                        <div className="flex items-center gap-2">
+                          {hasAccessibilityIssue ? (
+                            /* Red Accessible Issue Badge with X Indicator */
+                            <div
+                              className="w-6 h-6 rounded-lg bg-rose-50 border border-rose-300 text-rose-600 flex items-center justify-center shrink-0 relative shadow-2xs"
+                              title="Accessibility issue: Elevator out of service or detour active"
+                              aria-label="Not fully accessible: issue detected"
+                            >
+                              <FaWheelchair className="w-3.5 h-3.5 text-rose-600" />
+                              <span className="absolute -top-1 -right-1 w-3 h-3 bg-rose-600 text-white rounded-full flex items-center justify-center ring-1 ring-white">
+                                <FaXmark className="w-1.5 h-1.5" />
+                              </span>
+                            </div>
+                          ) : (
+                            /* Green Accessible Verified Badge with Checkmark Indicator */
+                            <div
+                              className="w-6 h-6 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-600 flex items-center justify-center shrink-0 relative shadow-2xs"
+                              title="Fully Accessible: Zero stairs, all elevators operational"
+                              aria-label="Fully accessible verified"
+                            >
+                              <FaWheelchair className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-600 text-white rounded-full flex items-center justify-center ring-1 ring-white">
+                                <FaCheck className="w-1.5 h-1.5" />
+                              </span>
+                            </div>
+                          )}
+
                           <h5 className="font-black text-sm text-slate-900 truncate group-hover:text-purple-950">
                             {corridor.destinationName}
                           </h5>
                         </div>
 
-                        {hasBrokenElevator && (
-                          <div className="mt-1 text-[10px] font-bold text-amber-700 flex items-center gap-1">
+                        {hasAccessibilityIssue && (
+                          <div className="mt-1 text-[10px] font-bold text-rose-700 flex items-center gap-1">
                             <FaTriangleExclamation className="w-2.5 h-2.5 shrink-0" />
-                            <span>Detour active (elevator down)</span>
+                            <span>
+                              {hasBrokenElevator
+                                ? 'Elevator issue: Detour active'
+                                : 'Active barrier reported'}
+                            </span>
                           </div>
                         )}
                       </div>
