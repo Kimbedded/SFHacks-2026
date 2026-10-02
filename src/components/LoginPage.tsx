@@ -41,10 +41,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     setLoading(true);
 
-    // Simulate authenticating against SFSU Single Sign-On / Gateway
     setTimeout(() => {
       setLoading(false);
-      // Generate display name from email or username
       const usernamePart = cleanEmail.split('@')[0];
       const formattedName = usernamePart
         .replace(/[._]/g, ' ')
@@ -61,7 +59,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       };
 
       onLoginSuccess(studentUser);
-    }, 450);
+    }, 400);
   };
 
   // Google Login API handler
@@ -86,15 +84,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     } catch (err: any) {
       console.warn('Firebase Google Auth popup warning/fallback:', err);
 
-      // In sandboxed iframes where third-party popups might be blocked by browser policy,
-      // provide smooth graceful fallback so student flow is uninterrupted
       if (
         err?.code === 'auth/popup-blocked' ||
         err?.code === 'auth/cancelled-popup-request' ||
         err?.code === 'auth/operation-not-supported-in-this-environment' ||
         err?.message?.includes('popup')
       ) {
-        // Safe interactive fallback
         const demoGoogleUser: AppUser = {
           uid: `google_student_${Date.now()}`,
           displayName: 'Gator Google User',
@@ -113,7 +108,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   };
 
-  // Guest Access handler (takes you straight to the app)
+  // Guest Access handler
   const handleGuestLogin = () => {
     const guestUser: AppUser = {
       uid: `guest_${Date.now()}`,
@@ -125,7 +120,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     onLoginSuccess(guestUser);
   };
 
-  // Quick helper to fill demo credentials
+  // Quick demo autofill helper
   const handleQuickDemoFill = () => {
     setEmail('student.gator@sfsu.edu');
     setPassword('GatorAccess2026!');
@@ -133,104 +128,108 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col justify-between relative overflow-hidden font-sans select-none">
-      {/* Background Decorative Campus Aura */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-purple-900/30 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/3 -right-32 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 left-1/4 w-96 h-96 bg-indigo-900/25 rounded-full blur-3xl"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(#3b0764_1px,transparent_1px)] [background-size:24px_24px] opacity-20"></div>
-      </div>
-
-      {/* Top Banner Accent */}
-      <div className="h-2 w-full bg-gradient-to-r from-purple-800 via-amber-400 to-purple-800 relative z-10"></div>
-
-      {/* Main Login Container */}
-      <div className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8 relative z-10">
-        <div className="w-full max-w-md bg-slate-900/90 backdrop-blur-xl border border-purple-800/40 rounded-3xl shadow-2xl shadow-purple-950/50 p-6 sm:p-8 text-white relative">
-          
-          {/* Header Area with Go Gaters & SF State University */}
-          <div className="text-center mb-6">
-            {/* Gator Access Wheelchair / Mobility Emblem */}
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-yellow-600 text-purple-950 shadow-lg shadow-amber-500/20 border-2 border-amber-300 mb-3 transform hover:scale-105 transition-transform">
-              <FaWheelchair className="w-8 h-8 text-purple-950" />
+    <div className="min-h-screen w-full bg-[#f4f4f6] flex flex-col justify-between font-sans text-slate-900 select-none">
+      {/* Official SFSU Header Bar */}
+      <header className="bg-[#231161] text-white border-b-4 border-[#eaaa00] shadow-md">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-lg bg-[#eaaa00] text-[#231161] flex items-center justify-center font-black shadow-sm">
+              <FaWheelchair className="w-6 h-6 text-[#231161]" />
             </div>
+            <div>
+              <div className="font-extrabold text-lg tracking-tight leading-tight">
+                SAN FRANCISCO STATE UNIVERSITY
+              </div>
+              <div className="text-xs text-[#eaaa00] font-semibold tracking-wider uppercase">
+                GatorAccess Campus Gateway
+              </div>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center space-x-4 text-xs text-purple-200">
+            <span>Official DPRC Accessibility Portal</span>
+            <span>•</span>
+            <span className="text-[#eaaa00] font-semibold">SF Hacks 2026</span>
+          </div>
+        </div>
+      </header>
 
+      {/* Main Login Card Area */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8">
+        <div className="w-full max-w-md bg-white border border-slate-300 rounded-2xl shadow-xl overflow-hidden">
+          
+          {/* Top Header Card Section */}
+          <div className="bg-[#231161] text-white p-6 text-center border-b-4 border-[#eaaa00]">
             {/* Required "Go Gaters!" */}
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-amber-400 uppercase drop-shadow-sm">
+            <h1 className="text-3xl font-black tracking-tight text-[#eaaa00] uppercase">
               Go Gaters!
             </h1>
-
             {/* Required "SF State University" */}
-            <p className="text-sm sm:text-base font-semibold text-purple-200 tracking-wide mt-0.5">
+            <p className="text-sm font-semibold text-purple-100 tracking-wide mt-1">
               SF State University
             </p>
-
-            <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-900/60 border border-purple-700/50 text-[11px] font-medium text-purple-300">
-              <FaShieldHalved className="w-3 h-3 text-amber-400" />
-              <span>GatorAccess • Campus Accessibility Portal</span>
+            <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1b0d4c] text-[11px] font-medium text-purple-200 border border-purple-800">
+              <FaShieldHalved className="w-3.5 h-3.5 text-[#eaaa00]" />
+              <span>Campus Single Sign-On (SSO)</span>
             </div>
           </div>
 
-          {/* Form Section Card */}
-          <div className="bg-slate-950/70 border border-purple-900/50 rounded-2xl p-5 sm:p-6 mb-5 shadow-inner">
-            
-            {/* Required title above textboxes: "SF State Gateway/MySFSU Login" */}
-            <div className="flex items-center justify-between mb-4 border-b border-purple-800/30 pb-2.5">
+          <div className="p-6 sm:p-7">
+            {/* Required Title Above Textboxes: "SF State Gateway/MySFSU Login" */}
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
               <div className="flex items-center gap-2">
-                <FaGraduationCap className="w-4 h-4 text-amber-400" />
-                <h2 className="text-sm sm:text-base font-bold text-white tracking-wide">
+                <FaGraduationCap className="w-4 h-4 text-[#231161]" />
+                <h2 className="text-base font-bold text-[#231161] tracking-tight">
                   SF State Gateway/MySFSU Login
                 </h2>
               </div>
               <button
                 type="button"
                 onClick={handleQuickDemoFill}
-                className="text-[11px] text-amber-400/90 hover:text-amber-300 underline font-medium"
+                className="text-xs text-[#231161] hover:text-[#eaaa00] underline font-medium cursor-pointer"
                 title="Fill demo credentials"
               >
-                Auto-fill Demo
+                Auto-fill
               </button>
             </div>
 
-            {/* Error Notification */}
+            {/* Error Message */}
             {errorMessage && (
-              <div className="mb-4 p-3 rounded-xl bg-red-950/80 border border-red-700/60 text-red-200 text-xs flex items-start gap-2">
-                <span className="font-bold text-red-400">Notice:</span>
+              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+                <span className="font-bold">Error:</span>
                 <span>{errorMessage}</span>
               </div>
             )}
 
             {/* General Student Login Form */}
-            <form onSubmit={handleSfsuLogin} className="space-y-3.5">
-              {/* Username / SFSU Email Textbox */}
+            <form onSubmit={handleSfsuLogin} className="space-y-4">
+              {/* Username / SFSU Email */}
               <div>
-                <label className="block text-xs font-semibold text-purple-200 mb-1">
-                  SFSU Username or Student Email
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  SFSU ID or Email
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-purple-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <FaEnvelope className="w-4 h-4" />
                   </div>
                   <input
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="SFSU. email: "
-                    className="w-full pl-10 pr-3 py-2.5 bg-slate-900 border border-purple-700/60 rounded-xl text-white placeholder-slate-400 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
+                    placeholder="SFSU email: "
+                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#231161] focus:border-[#231161] transition"
                     disabled={loading}
                     autoComplete="username"
                   />
                 </div>
               </div>
 
-              {/* Password Textbox */}
+              {/* Password */}
               <div>
-                <label className="block text-xs font-semibold text-purple-200 mb-1">
-                  SF State Password
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Password
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-purple-400">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                     <FaLock className="w-4 h-4" />
                   </div>
                   <input
@@ -238,14 +237,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password"
-                    className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-purple-700/60 rounded-xl text-white placeholder-slate-400 text-sm focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 transition-all"
+                    className="w-full pl-9 pr-10 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#231161] focus:border-[#231161] transition"
                     disabled={loading}
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-purple-400 hover:text-white"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                     tabIndex={-1}
                   >
                     {showPassword ? <FaEyeSlash className="w-4 h-4" /> : <FaEye className="w-4 h-4" />}
@@ -253,103 +252,120 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 </div>
               </div>
 
-              {/* SFSU Edu Login Submit Button */}
+              {/* SFSU Edu Login Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 px-4 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-purple-950 font-black rounded-xl text-sm shadow-md shadow-amber-500/25 flex items-center justify-center gap-2 transform active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer"
+                className="w-full py-2.5 px-4 bg-[#231161] hover:bg-[#1a0c47] text-white font-bold rounded-lg text-sm shadow flex items-center justify-center gap-2 transition active:scale-[0.99] disabled:opacity-50 cursor-pointer"
               >
                 {loading ? (
-                  <span className="inline-block w-4 h-4 border-2 border-purple-950 border-t-transparent rounded-full animate-spin"></span>
+                  <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
                 ) : (
                   <>
-                    <span>SFSU Edu Login</span>
-                    <FaArrowRight className="w-3.5 h-3.5" />
+                    <span>Sign in with SF State Gateway</span>
+                    <FaArrowRight className="w-3.5 h-3.5 text-[#eaaa00]" />
                   </>
                 )}
               </button>
             </form>
-          </div>
 
-          {/* Divider */}
-          <div className="relative flex py-2 items-center mb-4">
-            <div className="flex-grow border-t border-purple-900/60"></div>
-            <span className="flex-shrink mx-3 text-[11px] font-bold text-purple-300 uppercase tracking-wider">
-              Or Choose Sign In Option
-            </span>
-            <div className="flex-grow border-t border-purple-900/60"></div>
-          </div>
-
-          {/* Options: Google Login API Button & Guest Access Button */}
-          <div className="space-y-3">
-            {/* Google Login API Button */}
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-800 font-bold rounded-xl text-sm shadow flex items-center justify-center gap-3 transition-colors border border-slate-300 disabled:opacity-50 cursor-pointer"
-            >
-              {/* Official Google 'G' icon */}
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                />
-              </svg>
-              <span>Sign in with Google</span>
-            </button>
-
-            {/* Guest Button: Takes you straight to the app */}
-            <button
-              type="button"
-              onClick={handleGuestLogin}
-              disabled={loading}
-              className="w-full py-2.5 px-4 bg-purple-900/60 hover:bg-purple-900 text-purple-200 hover:text-white font-bold rounded-xl text-sm border border-purple-700/60 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
-            >
-              <span>Continue as Guest</span>
-              <span className="text-xs text-amber-300 font-semibold bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30">
-                Straight to App
+            {/* Clean Collegiate Divider */}
+            <div className="relative flex py-4 items-center">
+              <div className="flex-grow border-t border-slate-300"></div>
+              <span className="flex-shrink mx-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Or
               </span>
-            </button>
-          </div>
+              <div className="flex-grow border-t border-slate-300"></div>
+            </div>
 
-          {/* Privacy & Disability Accommodations Disclaimer */}
-          <div className="mt-6 text-center text-[11px] text-slate-400">
-            <p>
-              By accessing GatorAccess, you agree to SFSU Acceptable Use Policies.
-              <br />
-              Need disability accommodations? Contact{' '}
-              <a
-                href="https://dprc.sfsu.edu"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-amber-400 hover:underline"
+            {/* Alternative Sign In Options */}
+            <div className="space-y-3">
+              {/* Google Login API Button */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded-lg text-sm border border-slate-300 shadow-sm flex items-center justify-center gap-3 transition cursor-pointer disabled:opacity-50"
               >
-                DPRC at (415) 405-3580
-              </a>
-            </p>
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+                <span>Sign in with Google</span>
+              </button>
+
+              {/* Guest Button: strictly "Continue as guest" */}
+              <button
+                type="button"
+                onClick={handleGuestLogin}
+                disabled={loading}
+                className="w-full py-2.5 px-4 bg-[#eaaa00] hover:bg-[#d89800] text-[#231161] font-bold rounded-lg text-sm shadow-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+              >
+                <span>Continue as guest</span>
+              </button>
+            </div>
+
+            {/* Assistance Footnote */}
+            <div className="mt-6 pt-4 border-t border-slate-200 text-center text-xs text-slate-500 leading-relaxed">
+              <p>
+                Need help logging in? Contact{' '}
+                <a
+                  href="https://its.sfsu.edu"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#231161] font-bold hover:underline"
+                >
+                  SFSU ITS Help Desk
+                </a>{' '}
+                or call{' '}
+                <span className="font-semibold text-slate-700">(415) 338-1420</span>.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Footer Branding Bar */}
-      <div className="py-3 px-4 bg-slate-950 border-t border-purple-900/30 text-center text-xs text-purple-300/80 relative z-10 flex flex-col sm:flex-row items-center justify-center gap-2">
-        <span>San Francisco State University • 1600 Holloway Ave, San Francisco, CA 94132</span>
-        <span className="hidden sm:inline">•</span>
-        <span className="text-amber-400 font-semibold">SF Hacks 2026</span>
-      </div>
+      {/* Official SFSU Footer */}
+      <footer className="bg-[#231161] text-purple-200 text-xs py-4 px-4 border-t border-purple-900 text-center">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div>
+            © 2026 San Francisco State University • 1600 Holloway Avenue • San Francisco, CA 94132
+          </div>
+          <div className="flex items-center space-x-3 text-purple-300">
+            <a
+              href="https://dprc.sfsu.edu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#eaaa00]"
+            >
+              Disability Programs (DPRC)
+            </a>
+            <span>•</span>
+            <a
+              href="https://gateway.sfsu.edu"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#eaaa00]"
+            >
+              SF State Gateway
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
