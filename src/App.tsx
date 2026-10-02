@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Header } from './components/Header';
-import { QuotaBanner } from './components/QuotaBanner';
+import { GoogleMapsStatusBanner } from './components/GoogleMapsStatusBanner';
 import { TransitAlertsBanner } from './components/TransitAlertsBanner';
 import { CampusMap } from './components/CampusMap';
 import { RoutePlanner } from './components/RoutePlanner';
@@ -17,6 +17,12 @@ import { HotlineModal } from './components/HotlineModal';
 import { GlobalVoiceAgent } from './components/GlobalVoiceAgent';
 import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
 import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
+import {
+  getGoogleMapsApiKey,
+  isApiKeyConfigured,
+  getLastGmpError,
+  GoogleMapsErrorInfo,
+} from './utils/googleMapsConfig';
 import {
   Compass,
   AlertTriangle,
@@ -30,13 +36,29 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-
 export default function App() {
   const [activeTab, setActiveTab] = useState<'map' | 'report' | 'elevators' | 'support'>('map');
   const [buildings, setBuildings] = useState<CampusBuilding[]>(SFSU_BUILDINGS);
   const [reports, setReports] = useState<AccessibilityReport[]>(INITIAL_REPORTS);
   const [transitAlerts] = useState(TRANSIT_ALERTS);
+
+  // Google Maps State
+  const [mapsError, setMapsError] = useState<GoogleMapsErrorInfo | null>(getLastGmpError());
+  const apiKey = getGoogleMapsApiKey();
+  const hasKey = isApiKeyConfigured();
+
+  useEffect(() => {
+    const handleGmpError = (event: Event) => {
+      const customEvent = event as CustomEvent<GoogleMapsErrorInfo>;
+      if (customEvent.detail) {
+        setMapsError(customEvent.detail);
+      }
+    };
+    window.addEventListener('gmp-error', handleGmpError);
+    return () => {
+      window.removeEventListener('gmp-error', handleGmpError);
+    };
+  }, []);
 
   // Navigation State
   const [originBuilding, setOriginBuilding] = useState<CampusBuilding | null>(SFSU_BUILDINGS[10]); // Transit hub default
@@ -163,17 +185,16 @@ export default function App() {
   const hasElevatorDownInDest =
     Boolean(destBuilding && destBuilding.elevators.some((e) => e.status === 'down'));
 
-  return (
-    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'routes', 'geometry']}>
-      <div
-        className={`min-h-screen flex flex-col font-sans transition-colors ${
-          highContrast
-            ? 'bg-black text-amber-300 font-mono contrast-125'
-            : 'bg-slate-100 text-slate-900'
-        } ${largeText ? 'text-lg' : 'text-base'}`}
-      >
-        {/* Google Maps Quota Defense Banner (Case A compliant) */}
-        <QuotaBanner />
+  const appContent = (
+    <div
+      className={`min-h-screen flex flex-col font-sans transition-colors ${
+        highContrast
+          ? 'bg-black text-amber-300 font-mono contrast-125'
+          : 'bg-slate-100 text-slate-900'
+      } ${largeText ? 'text-lg' : 'text-base'}`}
+    >
+      {/* Google Maps Configuration & Status Banner */}
+      <GoogleMapsStatusBanner />
 
         {/* Visual Alerts Notification Bar if active */}
         {visualAlertsOnly && (
@@ -286,6 +307,7 @@ export default function App() {
                 buildings={buildings}
                 onReportSubmitted={handleReportSubmitted}
                 onRequestRide={() => setActiveTab('support')}
+                onNavigateToMap={() => setActiveTab('map')}
                 prefillLocation={prefillLocation}
               />
             </div>
@@ -381,6 +403,15 @@ export default function App() {
           </div>
         </footer>
       </div>
-    </APIProvider>
   );
+
+  if (hasKey && !mapsError) {
+    return (
+      <APIProvider apiKey={apiKey} libraries={['places', 'routes', 'geometry']}>
+        {appContent}
+      </APIProvider>
+    );
+  }
+
+  return appContent;
 }
