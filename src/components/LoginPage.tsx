@@ -133,8 +133,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       <header className="bg-[#231161] text-white border-b-4 border-[#eaaa00] shadow-md">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-[#eaaa00] text-[#231161] flex items-center justify-center font-black shadow-sm">
-              <FaWheelchair className="w-6 h-6 text-[#231161]" />
+            <div className="w-11 h-11 shrink-0 rounded-xl overflow-hidden shadow-sm border border-[#eaaa00]/60">
+              <img
+                src="/HacksIcon.svg"
+                alt="GatorAccess Mascot Icon"
+                className="w-full h-full object-cover block select-none rounded-[22%]"
+                loading="eager"
+              />
             </div>
             <div>
               <div className="font-extrabold text-lg tracking-tight leading-tight">
@@ -159,6 +164,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           
           {/* Top Header Card Section */}
           <div className="bg-[#231161] text-white p-6 text-center border-b-4 border-[#eaaa00]">
+            {/* Gator Mascot Icon from HacksIcon.svg */}
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden shadow-md mb-3 border-2 border-[#eaaa00] bg-[#231161]">
+              <img
+                src="/HacksIcon.svg"
+                alt="GatorAccess Mascot Icon"
+                className="w-full h-full object-cover block select-none rounded-[22%]"
+                loading="eager"
+              />
+            </div>
+
             {/* Required "Go Gaters!" */}
             <h1 className="text-3xl font-black tracking-tight text-[#eaaa00] uppercase">
               Go Gaters!
