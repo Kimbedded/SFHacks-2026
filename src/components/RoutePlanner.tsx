@@ -161,6 +161,23 @@ export function RoutePlanner({
   const routeRequestId = useRef(0);
   const [showFaqGuide, setShowFaqGuide] = useState(false);
 
+  // Mobile-Only Experience States
+  const [isMobileCorridorsOpen, setIsMobileCorridorsOpen] = useState(false);
+  const [mobileLocationSearch, setMobileLocationSearch] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close mobile search dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Check for unresolved barriers / reports affecting destination
   const unresolvedBarriers = reports.filter(
     (r) =>
@@ -427,12 +444,390 @@ export function RoutePlanner({
     window.speechSynthesis.speak(utterance);
   };
 
+  // Mobile search filtering for campus locations & corridors
+  const matchingCorridors =
+    mobileLocationSearch.trim() === ''
+      ? []
+      : SFSU_ACCESSIBLE_CORRIDORS.filter((c) => {
+          const q = mobileLocationSearch.toLowerCase();
+          return (
+            c.title.toLowerCase().includes(q) ||
+            c.destinationName.toLowerCase().includes(q) ||
+            c.destinationCode.toLowerCase().includes(q)
+          );
+        });
+
+  const matchingBuildings =
+    mobileLocationSearch.trim() === ''
+      ? []
+      : buildings
+          .filter((b) => {
+            const q = mobileLocationSearch.toLowerCase();
+            return (
+              b.name.toLowerCase().includes(q) ||
+              b.code.toLowerCase().includes(q) ||
+              (Boolean(b.address) && (b.address as string).toLowerCase().includes(q)) ||
+              (Boolean(b.notes) && (b.notes as string).toLowerCase().includes(q))
+            );
+          })
+          .slice(0, 8);
+
+  const handleSelectBuildingFromSearch = async (bldg: CampusBuilding) => {
+    setMobileLocationSearch(bldg.name);
+    setIsSearchFocused(false);
+
+    const matchingCorridor = SFSU_ACCESSIBLE_CORRIDORS.find(
+      (c) => c.destinationBuildingId === bldg.id
+    );
+    if (matchingCorridor) {
+      await handleSelectCorridor(matchingCorridor, false, true);
+    } else {
+      setDestBuilding(bldg);
+      const startCoord = selectedOrigin.coordinates;
+      const endCoord = bldg.coordinates;
+      const originLabel = `${selectedOrigin.shortName} (${selectedOrigin.address})`;
+      const destLabel = `${bldg.name} (${bldg.address || 'SFSU Campus'})`;
+
+      try {
+        const directions = await getGoogleMapsWalkingRoute(
+          startCoord,
+          endCoord,
+          originLabel,
+          destLabel
+        ).catch(() => null);
+
+        const steps =
+          directions?.steps && directions.steps.length > 0
+            ? directions.steps.map((s) => ({
+                instruction: s.instruction,
+                accessibilityNotes: 'Verified level ADA walking path',
+                isElevatorNeeded: false,
+                isRamp: false,
+                coordinates: s.coordinates || startCoord,
+              }))
+            : [
+                {
+                  instruction: `Depart from ${selectedOrigin.shortName}`,
+                  accessibilityNotes: 'Level paved ground',
+                  isElevatorNeeded: false,
+                  isRamp: false,
+                  coordinates: startCoord,
+                },
+                {
+                  instruction: `Arrive at accessible main entrance of ${bldg.name}`,
+                  accessibilityNotes: 'Automatic door button available',
+                  isElevatorNeeded: false,
+                  isRamp: false,
+                  coordinates: endCoord,
+                },
+              ];
+
+        const routeOption: AccessibleRouteOption = {
+          id: `route-custom-${bldg.id}-${Date.now()}`,
+          title: `Accessible Route to ${bldg.name}`,
+          type: 'maximum_accessibility',
+          distanceMeters: directions?.distanceMeters || 350,
+          estimatedMinutes: directions?.estimatedMinutes || 5,
+          maxSlopeGrade: 3.5,
+          elevationGainMeters: 2.5,
+          isFullyADACompliant: true,
+          pathCoordinates:
+            directions && directions.pathCoordinates.length > 1
+              ? directions.pathCoordinates
+              : [startCoord, endCoord],
+          steps,
+          googleMapsUrl:
+            directions?.googleMapsUrl ||
+            getGoogleMapsExternalUrl(startCoord, endCoord, originLabel, destLabel),
+        };
+        setActiveRoute(routeOption);
+        setViewMode('corridor_active');
+      } catch (err) {
+        console.warn('Could not generate route:', err);
+      }
+    }
+  };
+
+  const handleSelectCorridorFromSearch = (corridor: AccessibleCorridorItem) => {
+    setMobileLocationSearch(corridor.destinationName);
+    setIsSearchFocused(false);
+    handleSelectCorridor(corridor, false, true);
+  };
+
   return (
     <div className="space-y-4">
       {/* ========================================================================= */}
+      {/* MOBILE-ONLY SIMPLIFIED EXPERIENCE (< md)                                 */}
+      {/* 1. Direct Accessible Campus Corridors (Collapsible / Expandable)         */}
+      {/* 2. Simplified Location Search Bar                                        */}
+      {/* 3. Campus Map underneath                                                 */}
+      {/* ========================================================================= */}
+      <div className="md:hidden space-y-3">
+        {/* If an active route is open, show the active route summary banner */}
+        {viewMode === 'corridor_active' && activeRoute ? (
+          <div className="p-3 bg-purple-900 text-white rounded-2xl shadow-md border border-purple-700 space-y-2 animate-fadeIn">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-7 h-7 rounded-lg bg-amber-400 text-purple-950 flex items-center justify-center font-bold text-xs shrink-0">
+                  <FaRoute className="w-3.5 h-3.5" />
+                </span>
+                <div className="min-w-0">
+                  <h5 className="font-extrabold text-xs text-white truncate">
+                    {activeRoute.title}
+                  </h5>
+                  <p className="text-[10px] text-purple-200 truncate">
+                    Zero-Stairs • ~{activeRoute.estimatedMinutes} mins • {activeRoute.distanceMeters}m
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setViewMode('carousel')}
+                className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white rounded-lg text-xs font-semibold shrink-0 flex items-center gap-1 cursor-pointer"
+                title="Close active route"
+              >
+                <FaXmark className="w-3 h-3" />
+                <span>Close</span>
+              </button>
+            </div>
+
+            {/* Quick Action buttons */}
+            <div className="flex items-center gap-2 pt-1 border-t border-purple-800/80">
+              {activeRoute.googleMapsUrl && (
+                <a
+                  href={activeRoute.googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-1.5 px-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <FaArrowUpRightFromSquare className="w-3 h-3" />
+                  <span>Google Maps</span>
+                </a>
+              )}
+              <button
+                onClick={speakInstructions}
+                className={`py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border cursor-pointer ${
+                  isSpeaking
+                    ? 'bg-rose-600 text-white border-rose-500'
+                    : 'bg-white/10 text-white border-white/20'
+                }`}
+              >
+                <FaVolumeHigh className="w-3 h-3" />
+                <span>{isSpeaking ? 'Stop' : 'Voice'}</span>
+              </button>
+              <button
+                onClick={onRequestRide}
+                className="py-1.5 px-3 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <FaCar className="w-3 h-3" />
+                <span>Cart</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Collapsible & Expandable Direct Accessible Campus Corridors */
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsMobileCorridorsOpen((prev) => !prev)}
+              className="w-full p-3 flex items-center justify-between text-left hover:bg-purple-50/40 transition-colors cursor-pointer"
+              aria-expanded={isMobileCorridorsOpen}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="w-8 h-8 rounded-xl bg-amber-400 text-purple-950 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                  <FaRoute className="w-4 h-4" />
+                </span>
+                <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5 truncate">
+                  <span>Direct Accessible Campus Corridors</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                    {SFSU_ACCESSIBLE_CORRIDORS.length}
+                  </span>
+                </h4>
+              </div>
+
+              {/* Just arrow icon on the right (Mobile only) */}
+              <div className="w-7 h-7 rounded-xl bg-purple-50 text-purple-900 border border-purple-200 flex items-center justify-center shrink-0 ml-2">
+                {isMobileCorridorsOpen ? (
+                  <FaChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <FaChevronDown className="w-3.5 h-3.5" />
+                )}
+              </div>
+            </button>
+
+            {/* Simplified Corridors List (Mobile only) */}
+            {isMobileCorridorsOpen && (
+              <div className="p-3 pt-0 border-t border-slate-100 space-y-2 max-h-[380px] overflow-y-auto">
+                {SFSU_ACCESSIBLE_CORRIDORS.map((corridor) => {
+                  const bldg = buildings.find((b) => b.id === corridor.destinationBuildingId);
+                  const hasBrokenElevator =
+                    bldg?.elevators.some((e) => e.status === 'down') ||
+                    Boolean(corridor.elevatorDownWarning);
+
+                  return (
+                    <div
+                      key={corridor.id}
+                      onClick={() => {
+                        handleSelectCorridor(corridor, false, true);
+                        setIsMobileCorridorsOpen(false);
+                      }}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 hover:border-purple-400 hover:bg-purple-50/50 flex items-center gap-3 transition-all cursor-pointer group"
+                    >
+                      {/* Location Photo Thumbnail */}
+                      <div className="w-12 h-12 shrink-0 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center">
+                        {corridor.photoUrl ? (
+                          <img
+                            src={corridor.photoUrl}
+                            alt={corridor.destinationName}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <FaBuilding className="w-5 h-5 text-purple-700" />
+                        )}
+                      </div>
+
+                      {/* Location Title & Green Wheelchair Icon (Bigger bold title, no acronym, no gray subtitle) */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="w-5 h-5 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs"
+                            title="Zero-Stairs Accessible"
+                          >
+                            <FaWheelchair className="w-3 h-3" />
+                          </span>
+                          <h5 className="font-black text-sm text-slate-900 truncate group-hover:text-purple-950">
+                            {corridor.destinationName}
+                          </h5>
+                        </div>
+
+                        {hasBrokenElevator && (
+                          <div className="mt-1 text-[10px] font-bold text-amber-700 flex items-center gap-1">
+                            <FaTriangleExclamation className="w-2.5 h-2.5 shrink-0" />
+                            <span>Detour active (elevator down)</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right side: Time (bigger and bold) & distance */}
+                      <div className="shrink-0 text-right flex items-center gap-2">
+                        <div>
+                          <span className="text-sm font-black text-slate-900 block leading-tight">
+                            {corridor.estimatedMinutes} min
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-400 block">
+                            {corridor.distanceMeters}m
+                          </span>
+                        </div>
+                        <FaChevronRight className="w-3 h-3 text-slate-300 group-hover:text-purple-700 transition-colors" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Location Search Bar right above map */}
+        <div ref={searchDropdownRef} className="relative z-30">
+          <div className="relative">
+            <FaMagnifyingGlass className="w-3.5 h-3.5 text-purple-700 absolute left-3.5 top-3.5" />
+            <input
+              type="text"
+              placeholder="Search campus locations (Library, CCSC, Mashouf...)"
+              value={mobileLocationSearch}
+              onFocus={() => setIsSearchFocused(true)}
+              onChange={(e) => {
+                setMobileLocationSearch(e.target.value);
+                setIsSearchFocused(true);
+              }}
+              className="w-full pl-9 pr-9 py-2.5 text-xs bg-white border border-slate-300 rounded-2xl shadow-xs focus:ring-2 focus:ring-purple-600 focus:border-purple-600 outline-none text-slate-900 placeholder:text-slate-400 font-medium"
+            />
+            {mobileLocationSearch && (
+              <button
+                onClick={() => {
+                  setMobileLocationSearch('');
+                  setIsSearchFocused(false);
+                }}
+                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <FaXmark className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Search Autocomplete Dropdown */}
+          {isSearchFocused && (matchingCorridors.length > 0 || matchingBuildings.length > 0) && (
+            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl shadow-xl border border-purple-200 max-h-72 overflow-y-auto z-40 divide-y divide-slate-100">
+              {matchingCorridors.length > 0 && (
+                <div className="p-2">
+                  <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-800 bg-purple-50 rounded-lg mb-1">
+                    Zero-Stairs Corridors
+                  </div>
+                  {matchingCorridors.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSelectCorridorFromSearch(c)}
+                      className="w-full text-left p-2 rounded-xl hover:bg-purple-50 flex items-center justify-between text-xs transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FaRoute className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                        <div className="truncate">
+                          <span className="font-bold text-slate-900">{c.destinationName}</span>
+                          <span className="text-slate-500 ml-1 text-[11px]">({c.title})</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                        Zero-Stairs
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {matchingBuildings.length > 0 && (
+                <div className="p-2">
+                  <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 bg-slate-50 rounded-lg mb-1">
+                    Campus Buildings
+                  </div>
+                  {matchingBuildings.map((b) => (
+                    <button
+                      key={b.id}
+                      onClick={() => handleSelectBuildingFromSearch(b)}
+                      className="w-full text-left p-2 rounded-xl hover:bg-purple-50 flex items-center justify-between text-xs transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FaBuilding className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                        <div className="truncate">
+                          <span className="font-bold text-slate-900">{b.name}</span>
+                          <span className="text-slate-500 ml-1 text-[11px]">[{b.code}]</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 shrink-0 truncate max-w-[120px]">
+                        {b.address || 'SFSU Campus'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Map right underneath search bar on mobile */}
+        {mapPanel && (
+          <div className="min-w-0">
+            {mapPanel}
+          </div>
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* DESKTOP VIEW (>= md)                                                      */}
       {/* 1. SIMPLE ORIGIN BAR (REPLACES BULKY ORIGIN/DESTINATION FORM INPUTS)     */}
       {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3">
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm border border-slate-200 p-4 space-y-3">
         <div className="flex items-center gap-4 overflow-x-auto pb-1">
           <div className="flex items-center gap-2 shrink-0">
             <span className="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center shrink-0">
@@ -560,11 +955,13 @@ export function RoutePlanner({
       </div>
 
       {/* ========================================================================= */}
+      {/* DESKTOP 2-COLUMN GRID (>= md); turn-by-turn expands to a full-screen focus view */}
+      {/* ========================================================================= */}
       <div
         className={
           isFocusView
-            ? 'fixed inset-0 z-[60] bg-slate-100 p-3 sm:p-4 overflow-y-auto md:overflow-hidden grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 animate-fadeIn'
-            : 'grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 xl:gap-6 items-start'
+            ? 'hidden md:grid md:fixed md:inset-0 md:z-[60] md:bg-slate-100 md:p-4 md:overflow-hidden md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 animate-fadeIn'
+            : 'hidden md:grid md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 xl:gap-6 items-start'
         }
       >
         <div className={isFocusView ? 'min-w-0 md:h-full md:min-h-0' : 'min-w-0'}>

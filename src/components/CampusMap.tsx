@@ -529,7 +529,7 @@ export function CampusMap({
     >
       {/* Floating Active Route Bar with Google Maps Action */}
       {activeRoute && (
-        <div className="absolute top-14 left-3 z-20 max-w-sm sm:max-w-md bg-slate-950/95 backdrop-blur-md text-white p-2.5 rounded-xl border border-blue-400/40 shadow-xl flex items-center justify-between gap-3 animate-fadeIn">
+        <div className="absolute top-3 left-3 z-20 max-w-[calc(100%-1.5rem)] sm:max-w-md bg-slate-950/95 backdrop-blur-md text-white p-2.5 rounded-xl border border-blue-400/40 shadow-xl flex items-center justify-between gap-3 animate-fadeIn">
           <div className="truncate">
             <div className="flex items-center gap-1.5 truncate">
               <span className="font-extrabold text-xs text-white truncate">{activeRoute.title}</span>
