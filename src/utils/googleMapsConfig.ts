@@ -28,7 +28,7 @@ export interface GoogleMapsErrorInfo {
  * Supports GOOGLE_MAPS_API_KEY as primary, with VITE_GOOGLE_MAPS_API_KEY as fallback.
  * Never logs or reveals the raw key.
  */
-const PROVISIONED_MAPS_KEY = 'AIzaSyAiOp12oNscvm63kc-pAGM0RS03XTd10qs';
+const PROVISIONED_MAPS_KEY = 'AIzaSyDDi2LqAxzS8Pfq-WS-MLIsyoB7cOyKAms';
 
 export function getGoogleMapsApiKey(): string {
   const raw =
