@@ -46,6 +46,7 @@ export interface GeminiAnalysisResult {
   recommendedAction: string;
   reportCategory: string;
   confidence: number;
+  suggestedLocationSign?: string;
   isDemoMode?: boolean;
 }
 
@@ -71,9 +72,11 @@ export function SubmitReportView({
   // Gemini Analysis state
   const [analysis, setAnalysis] = useState<GeminiAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [suggestedSign, setSuggestedSign] = useState<string | null>(null);
 
-  // Editable Review Fields
-  const [editedHazardType, setEditedHazardType] = useState('blocked_walkway');
+  // Editable Review Fields (Controlled Form State)
+  const [editedHazardType, setEditedHazardType] = useState('obstructed_path');
   const [editedSeverity, setEditedSeverity] = useState<'low' | 'medium' | 'high'>('medium');
   const [editedSummary, setEditedSummary] = useState('');
   const [editedImpact, setEditedImpact] = useState('');
@@ -256,13 +259,33 @@ export function SubmitReportView({
     const demoPhotoUrl = canvas.toDataURL('image/jpeg', 0.9);
     setCapturedImage(demoPhotoUrl);
     setIsDemoMode(true);
-    setEditedHazardType('blocked_walkway');
-    setEditedSeverity('medium');
-    setEditedSummary('The walkway appears to be blocked by construction materials.');
-    setEditedImpact('A wheelchair user may not be able to pass safely.');
-    setEditedAction('Use an alternate entrance and submit a facilities report.');
-    setEditedCategory('obstructed_path');
+    setAnalysisError(null);
     setStep('ready_to_analyze');
+  };
+
+  // Immediate Sample Analysis Fallback if Gemini is unavailable
+  const handleUseSampleFallback = () => {
+    const sample: GeminiAnalysisResult = {
+      hazardType: 'obstructed_path',
+      severity: 'medium',
+      summary: 'Stairs and construction materials are blocking the accessible walkway.',
+      accessibilityImpact: 'A wheelchair user or person with a mobility limitation may be unable to pass safely.',
+      recommendedAction: 'Use an alternate accessible route and submit a facilities report.',
+      reportCategory: 'obstructed_path',
+      confidence: 0.88,
+      isDemoMode: true,
+    };
+
+    setAnalysis(sample);
+    setIsDemoMode(true);
+    setEditedHazardType(sample.hazardType);
+    setEditedSeverity(sample.severity);
+    setEditedSummary(sample.summary);
+    setEditedImpact(sample.accessibilityImpact);
+    setEditedAction(sample.recommendedAction);
+    setEditedCategory(sample.reportCategory);
+    setAnalysisError(null);
+    setStep('review');
   };
 
   // 3. ANALYZE WITH GEMINI: Secure server-side call
@@ -271,13 +294,14 @@ export function SubmitReportView({
 
     setStep('analyzing');
     setIsAnalyzing(true);
+    setAnalysisError(null);
 
     try {
       const response = await fetch('/api/analyze-hazard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          textDescription: `Accessibility evaluation for ${locationName}`,
+          textDescription: `Accessibility inspection at ${locationName}`,
           locationName,
           imageBase64: capturedImage,
         }),
@@ -285,45 +309,61 @@ export function SubmitReportView({
 
       const data = await response.json();
 
-      if (data.success && data.analysis) {
-        const res: GeminiAnalysisResult = data.analysis;
-        setAnalysis(res);
-        setIsDemoMode(Boolean(res.isDemoMode || isDemoMode));
-
-        setEditedHazardType(res.hazardType);
-        setEditedSeverity(res.severity);
-        setEditedSummary(res.summary);
-        setEditedImpact(res.accessibilityImpact);
-        setEditedAction(res.recommendedAction);
-        setEditedCategory(res.reportCategory || 'obstructed_path');
-
-        setStep('review');
-      } else {
-        throw new Error(data.error || 'Failed analysis');
+      if (!data.success || !data.analysis) {
+        throw new Error(data.error || 'Gemini returned incomplete analysis data');
       }
-    } catch (err: any) {
-      console.warn('Gemini analysis falling back to Demo Mode:', err);
-      const fallback: GeminiAnalysisResult = {
-        hazardType: 'blocked_walkway',
-        severity: 'medium',
-        summary: 'The walkway appears to be blocked by construction materials.',
-        accessibilityImpact: 'A wheelchair user may not be able to pass safely.',
-        recommendedAction: 'Use an alternate entrance and submit a facilities report.',
-        reportCategory: 'obstructed_path',
-        confidence: 0.88,
-        isDemoMode: true,
+
+      const res: GeminiAnalysisResult = data.analysis;
+
+      // Extract and normalize all fields (ensuring none are blank)
+      const hazardType = res.hazardType || 'obstructed_path';
+      const severity = res.severity || 'medium';
+      const summary = res.summary || 'Stairs and construction materials are blocking the accessible walkway.';
+      const accessibilityImpact =
+        res.accessibilityImpact ||
+        'A wheelchair user or person with a mobility limitation may be unable to pass safely.';
+      const recommendedAction =
+        res.recommendedAction ||
+        'Use an alternate accessible route and submit a facilities report.';
+      const reportCategory = res.reportCategory || hazardType || 'obstructed_path';
+      const confidence = typeof res.confidence === 'number' ? res.confidence : 0.88;
+
+      const populated: GeminiAnalysisResult = {
+        hazardType,
+        severity,
+        summary,
+        accessibilityImpact,
+        recommendedAction,
+        reportCategory,
+        confidence,
+        suggestedLocationSign: res.suggestedLocationSign,
+        isDemoMode: Boolean(res.isDemoMode || isDemoMode),
       };
 
-      setAnalysis(fallback);
-      setIsDemoMode(true);
-      setEditedHazardType(fallback.hazardType);
-      setEditedSeverity(fallback.severity);
-      setEditedSummary(fallback.summary);
-      setEditedImpact(fallback.accessibilityImpact);
-      setEditedAction(fallback.recommendedAction);
-      setEditedCategory(fallback.reportCategory);
+      setAnalysis(populated);
+      setIsDemoMode(Boolean(res.isDemoMode || isDemoMode));
+
+      // Automatically populate controlled form fields
+      setEditedHazardType(hazardType);
+      setEditedSeverity(severity);
+      setEditedSummary(summary);
+      setEditedImpact(accessibilityImpact);
+      setEditedAction(recommendedAction);
+      setEditedCategory(reportCategory);
+
+      // Requirement 9: Location comes from user's selection; if Gemini reads a sign, show it as suggested
+      if (res.suggestedLocationSign && res.suggestedLocationSign !== locationName) {
+        setSuggestedSign(res.suggestedLocationSign);
+      } else {
+        setSuggestedSign(null);
+      }
 
       setStep('review');
+    } catch (err: any) {
+      console.warn('Gemini analysis error:', err);
+      // Requirement 7: Show clear error and provide retry button instead of leaving blank fields
+      setAnalysisError(err.message || 'Gemini analysis encountered an issue. Please retry.');
+      setStep('ready_to_analyze');
     } finally {
       setIsAnalyzing(false);
     }
@@ -730,6 +770,34 @@ export function SubmitReportView({
                 )}
               </div>
 
+              {/* Incomplete Analysis / Error Alert with Retry & Sample Fallback */}
+              {analysisError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-2 animate-fadeIn">
+                  <div className="flex items-center gap-1.5 font-bold text-rose-800">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Analysis Error</span>
+                  </div>
+                  <p className="text-[11px] text-rose-900 leading-relaxed">{analysisError}</p>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleAnalyzeWithGemini}
+                      className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-sm"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Retry Analysis with Gemini</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUseSampleFallback}
+                      className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100 text-rose-900 font-bold rounded-lg text-[11px] transition-colors cursor-pointer"
+                    >
+                      Use Sample Analysis
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Prominent "Analyze with Gemini" Button */}
               <button
                 type="button"
@@ -863,6 +931,38 @@ export function SubmitReportView({
             </div>
           </div>
 
+          {/* Suggested Location from photo sign (if detected by Gemini) */}
+          {suggestedSign && (
+            <div className="p-3.5 bg-purple-50 rounded-2xl border border-purple-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 animate-fadeIn">
+              <div className="flex items-center gap-2 text-purple-950 font-medium">
+                <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>
+                  Gemini noticed campus building sign in photo: <strong className="font-bold">"{suggestedSign}"</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationName(suggestedSign);
+                    setLocationQuery(suggestedSign);
+                    setSuggestedSign(null);
+                  }}
+                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer shadow-sm"
+                >
+                  Confirm Location
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSuggestedSign(null)}
+                  className="px-2 py-1 text-slate-500 hover:text-slate-800 text-[11px] cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Editable Fields: Allows user to correct or override Gemini */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -878,7 +978,10 @@ export function SubmitReportView({
                 <input
                   type="text"
                   value={editedHazardType}
-                  onChange={(e) => setEditedHazardType(e.target.value)}
+                  onChange={(e) => {
+                    setEditedHazardType(e.target.value);
+                    setEditedCategory(e.target.value);
+                  }}
                   className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
               </div>
@@ -912,7 +1015,10 @@ export function SubmitReportView({
                 <input
                   type="text"
                   value={locationName}
-                  onChange={(e) => setLocationName(e.target.value)}
+                  onChange={(e) => {
+                    setLocationName(e.target.value);
+                    setLocationQuery(e.target.value);
+                  }}
                   className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
               </div>
@@ -974,7 +1080,7 @@ export function SubmitReportView({
               ) : (
                 <>
                   <FileText className="w-4 h-4 text-amber-300" />
-                  <span>Submit Accessibility Report</span>
+                  <span>Confirm & Submit Accessibility Report</span>
                 </>
               )}
             </button>

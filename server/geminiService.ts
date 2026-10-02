@@ -22,23 +22,106 @@ export interface HazardAnalysisInput {
   sampleType?: string;
 }
 
-export async function analyzeAccessibilityHazard(input: HazardAnalysisInput) {
+export interface StructuredHazardAnalysis {
+  hazardType: string;
+  severity: 'low' | 'medium' | 'high';
+  summary: string;
+  accessibilityImpact: string;
+  recommendedAction: string;
+  reportCategory: string;
+  confidence: number;
+  suggestedLocationSign?: string;
+  isDemoMode?: boolean;
+}
+
+export function getDemoFallbackAnalysis(input: HazardAnalysisInput): StructuredHazardAnalysis {
+  const desc = (input.textDescription || '').toLowerCase();
+
+  if (desc.includes('elevator') || desc.includes('lift')) {
+    return {
+      hazardType: 'broken_elevator',
+      severity: 'high',
+      summary: 'The passenger elevator appears to be out of service with unpowered doors and call button offline.',
+      accessibilityImpact: 'Students who cannot use stairs are unable to reach upper floor classrooms or facilities.',
+      recommendedAction: 'Use the exterior ground switchback ramp or request a Gator Mobility Cart ride at (415) 338-1441.',
+      reportCategory: 'broken_elevator',
+      confidence: 0.94,
+      isDemoMode: true,
+    };
+  }
+
+  if (desc.includes('ramp') || desc.includes('slope') || desc.includes('steep')) {
+    return {
+      hazardType: 'steep_slope',
+      severity: 'medium',
+      summary: 'The walkway or ramp incline appears excessively steep or has uneven surface grade exceeding ADA limits.',
+      accessibilityImpact: 'Manual wheelchair users risk tipping or losing braking control; ambulatory students with crutches face fatigue.',
+      recommendedAction: 'Take the adjacent flat Malcolm X Plaza walkway with compliant grade under 5%.',
+      reportCategory: 'steep_slope',
+      confidence: 0.91,
+      isDemoMode: true,
+    };
+  }
+
+  if (desc.includes('door') || desc.includes('push')) {
+    return {
+      hazardType: 'broken_power_door',
+      severity: 'medium',
+      summary: 'The automatic blue accessibility push-plate or door actuator is non-responsive.',
+      accessibilityImpact: 'Students with limited upper-body mobility cannot open the heavy exterior door independently.',
+      recommendedAction: 'Use the secondary automatic sliding entrance at the main plaza gateway.',
+      reportCategory: 'broken_power_door',
+      confidence: 0.89,
+      isDemoMode: true,
+    };
+  }
+
+  // Default sample analysis (matching user specification)
+  return {
+    hazardType: 'obstructed_path',
+    severity: 'medium',
+    summary: 'Stairs and construction materials are blocking the accessible walkway.',
+    accessibilityImpact: 'A wheelchair user or person with a mobility limitation may be unable to pass safely.',
+    recommendedAction: 'Use an alternate accessible route and submit a facilities report.',
+    reportCategory: 'obstructed_path',
+    confidence: 0.88,
+    isDemoMode: true,
+  };
+}
+
+export async function analyzeAccessibilityHazard(input: HazardAnalysisInput): Promise<StructuredHazardAnalysis> {
+  const hasKey = Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY' && apiKey.trim() !== '');
+
+  // In Demo Mode, return a complete sample analysis immediately so no fields are blank
+  if (!hasKey) {
+    return getDemoFallbackAnalysis(input);
+  }
+
   try {
     const prompt = `
-You are an ADA accessibility inspector and San Francisco State University (SFSU) Facilities & DPRC (Disability Programs and Resource Center) engineering analyst.
+You are an expert ADA Title II accessibility inspector for San Francisco State University (SFSU).
+Analyze this campus accessibility hazard photo taken by a student.
 
-Analyze this campus accessibility hazard report.
-Location on campus: ${input.locationName || 'SFSU Campus'}
-Student description: ${input.textDescription || 'Accessibility hazard observed'}
+Campus location context: ${input.locationName || 'SFSU Campus'}
+Student description notes: ${input.textDescription || 'Accessibility hazard observed on campus'}
 
-If an image is provided:
-1. Identify the physical hazard (stairs without ramp, blocked doorway, broken elevator, locked ADA restroom, construction barrier, broken blue power door button, pavement cracking/lip > 1/2 inch).
-2. Approximate the slope or ramp elevation grade if a ramp, slope, or incline is visible (e.g. 4%, 8.5%, 12%). Note: ADA Standards Section 405.2 mandates maximum 1:12 (8.33%) slope.
-3. Determine ADA Title II compliance status (compliant, borderline, non_compliant, or hazardous).
-4. Provide a safe alternative detour route for students using wheelchairs, walkers, or crutches.
-5. Generate an official SFSU Facilities Services Work Order draft.
+Inspect the photo to identify physical barriers:
+1. Physical hazard (e.g. obstructed walkway, stairs blocking accessible route, broken elevator, steep slope, broken automatic door button, locked accessible restroom, construction materials).
+2. Accessibility impact on disabled students (wheelchair users, walkers, canes, visual impairments).
+3. Immediate recommended workaround action or detour.
+4. If an official university building sign is clearly visible in the photo (e.g. "Cesar Chavez Student Center", "J. Paul Leonard Library", "Fine Arts"), extract that name as suggestedLocationSign. Do NOT invent a location if no sign is visible.
 
-Return a valid JSON object matching the requested schema.
+Output strictly valid JSON matching this schema:
+{
+  "hazardType": "obstructed_path",
+  "severity": "medium",
+  "summary": "Stairs and construction materials are blocking the accessible walkway.",
+  "accessibilityImpact": "A wheelchair user or person with a mobility limitation may be unable to pass safely.",
+  "recommendedAction": "Use an alternate accessible route and submit a facilities report.",
+  "reportCategory": "obstructed_path",
+  "confidence": 0.88,
+  "suggestedLocationSign": "Building name from visible sign in photo, or omit if none"
+}
 `;
 
     const contents: any[] = [];
@@ -52,100 +135,84 @@ Return a valid JSON object matching the requested schema.
     }
     contents.push({ text: prompt });
 
-    const response = await ai.models.generateContent({
+    const generatePromise = ai.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: { parts: contents },
       config: {
         systemInstruction:
-          'You are an expert ADA Title II & Title III compliance engineer for universities. Output strictly valid JSON without markdown wrapping.',
+          'You are an expert university ADA accessibility analyst. Output strictly valid JSON without markdown wrapping.',
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            detectedHazard: {
+            hazardType: {
               type: Type.STRING,
-              description: 'Clear, concise hazard title (e.g. "Steep Ramp Exceeding ADA Grade", "Broken Power Door Opener")',
+              description: 'Hazard identifier (e.g. "obstructed_path", "broken_elevator", "steep_slope", "broken_power_door")',
             },
-            hazardDescription: {
+            severity: {
               type: Type.STRING,
-              description: 'Detailed analysis of why this presents an accessibility barrier to disabled students.',
+              enum: ['low', 'medium', 'high'],
+              description: 'Severity level: low, medium, or high',
             },
-            slopeGradePercentage: {
-              type: Type.NUMBER,
-              description: 'Estimated slope percentage (e.g. 9.5 for 9.5% grade). Null if not a ramp or slope.',
-            },
-            adaComplianceStatus: {
+            summary: {
               type: Type.STRING,
-              enum: ['compliant', 'borderline', 'non_compliant', 'hazardous', 'requires_inspection'],
-              description: 'ADA standard compliance evaluation.',
+              description: 'Clear description of the physical barrier.',
             },
-            adaCodeReference: {
+            accessibilityImpact: {
               type: Type.STRING,
-              description: 'Relevant ADA regulation code (e.g. "ADA Section 405.2 (Ramp Slope)", "ADA Section 404.3 (Automatic Doors)").',
+              description: 'Impact on wheelchair users or mobility limitations.',
             },
-            suggestedPriority: {
+            recommendedAction: {
               type: Type.STRING,
-              enum: ['low', 'medium', 'high', 'critical'],
-              description: 'Priority level for SFSU facilities dispatch.',
+              description: 'Practical detour or facilities action.',
             },
-            suggestedWorkOrderType: {
+            reportCategory: {
               type: Type.STRING,
-              description: 'Classification of maintenance trade required (e.g. "Elevator Mechanic", "Carpentry & Ramps", "Electrical / Door Actuators", "Grounds Clearing").',
-            },
-            estimatedFixEffort: {
-              type: Type.STRING,
-              description: 'Estimated resolution time (e.g. "1-2 hours", "1 business day").',
-            },
-            suggestedDetour: {
-              type: Type.STRING,
-              description: 'Practical, low-effort accessible workaround or detour route on campus.',
-            },
-            recommendedHotlineAction: {
-              type: Type.STRING,
-              description: 'Actionable campus resource to notify (e.g. "Dispatch Gator Mobility Cart", "Call DPRC Hotline", "Alert UPD Safety Escort").',
+              description: 'Report category matching hazardType.',
             },
             confidence: {
               type: Type.NUMBER,
               description: 'Confidence score between 0.0 and 1.0',
             },
+            suggestedLocationSign: {
+              type: Type.STRING,
+              description: 'Only if a building name sign is readable in the photo.',
+            },
           },
           required: [
-            'detectedHazard',
-            'hazardDescription',
-            'adaComplianceStatus',
-            'suggestedPriority',
-            'suggestedWorkOrderType',
-            'estimatedFixEffort',
-            'suggestedDetour',
-            'recommendedHotlineAction',
+            'hazardType',
+            'severity',
+            'summary',
+            'accessibilityImpact',
+            'recommendedAction',
+            'reportCategory',
             'confidence',
           ],
         },
       },
     });
 
-    const text = response.text?.trim() || '{}';
-    return JSON.parse(text);
-  } catch (err: any) {
-    console.error('Gemini hazard analysis error:', err);
-    // Graceful fallback with rich structural heuristics
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Gemini API call timed out after 8s')), 8000)
+    );
+
+    const response = await Promise.race([generatePromise, timeoutPromise]);
+    const parsed = JSON.parse(response.text?.trim() || '{}');
+
     return {
-      detectedHazard: input.textDescription
-        ? `Accessibility Hazard: ${input.textDescription.slice(0, 45)}...`
-        : 'Reported Campus Physical Accessibility Barrier',
-      hazardDescription:
-        input.textDescription ||
-        'Observed barrier affecting wheelchair, mobility device, or visual navigation on campus pathways.',
-      slopeGradePercentage: input.textDescription?.toLowerCase().includes('steep') ? 9.8 : null,
-      adaComplianceStatus: 'non_compliant',
-      adaCodeReference: 'ADA Title II Section 35.150 (Existing Facilities)',
-      suggestedPriority: 'high',
-      suggestedWorkOrderType: 'Facilities Services Accessibility Inspection',
-      estimatedFixEffort: '1-3 hours inspection & triage',
-      suggestedDetour: 'Follow main paved Malcolm X Plaza route; avoid unpaved or steep amphitheater paths.',
-      recommendedHotlineAction: 'DPRC Hotline & Facilities Work Order Logged.',
-      confidence: 0.88,
+      hazardType: parsed.hazardType || parsed.reportCategory || 'obstructed_path',
+      severity: (['low', 'medium', 'high'].includes(parsed.severity) ? parsed.severity : 'medium') as 'low' | 'medium' | 'high',
+      summary: parsed.summary || 'Stairs and construction materials are blocking the accessible walkway.',
+      accessibilityImpact: parsed.accessibilityImpact || 'A wheelchair user or person with a mobility limitation may be unable to pass safely.',
+      recommendedAction: parsed.recommendedAction || 'Use an alternate accessible route and submit a facilities report.',
+      reportCategory: parsed.reportCategory || parsed.hazardType || 'obstructed_path',
+      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0.88,
+      suggestedLocationSign: parsed.suggestedLocationSign || undefined,
+      isDemoMode: false,
     };
+  } catch (err: any) {
+    console.warn('Gemini hazard analysis error, using complete fallback:', err?.message);
+    return getDemoFallbackAnalysis(input);
   }
 }
 
