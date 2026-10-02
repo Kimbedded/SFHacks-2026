@@ -359,6 +359,14 @@ export default function App() {
               >
                 dprc.sfsu.edu
               </a>
+              <span>•</span>
+              <a
+                href="/api/export-archive"
+                download="gatoraccess-sfhacks-2026.tar.gz"
+                className="px-2.5 py-1 bg-purple-800 hover:bg-purple-700 text-amber-300 font-bold rounded-md transition-colors"
+              >
+                📦 Download Codebase (.tar.gz)
+              </a>
             </div>
           </div>
         </footer>

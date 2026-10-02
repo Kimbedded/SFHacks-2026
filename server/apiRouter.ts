@@ -283,3 +283,15 @@ apiRouter.get('/transit-alerts', (_req: Request, res: Response) => {
     alerts: TRANSIT_ALERTS,
   });
 });
+
+// 11. Export Project Archive (.tar.gz) for easy local download
+apiRouter.get('/export-archive', (_req: Request, res: Response) => {
+  try {
+    const { execSync } = require('child_process');
+    const archivePath = '/tmp/gatoraccess-sfhacks-2026.tar.gz';
+    execSync(`tar --exclude='node_modules' --exclude='.gmp_cache' --exclude='dist' -czf ${archivePath} -C . .`);
+    res.download(archivePath, 'gatoraccess-sfhacks-2026.tar.gz');
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
