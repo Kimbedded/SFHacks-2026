@@ -14,6 +14,7 @@ import {
   FaCamera,
   FaUser,
   FaRightFromBracket,
+} from 'react-icons/fa6';
 import { AppUser } from './LoginPage';
 import { GatorAppIcon } from './GatorAppIcon';
 
