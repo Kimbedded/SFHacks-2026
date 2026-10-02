@@ -1,5 +1,11 @@
 import { Router, Request, Response } from 'express';
-import { analyzeAccessibilityHazard, planAccessibleRouteAI, processVoiceAgentQuery } from './geminiService';
+import { 
+  analyzeAccessibilityHazard, 
+  planAccessibleRouteAI, 
+  processGeminiVoiceQuery,
+  transcribeAudioWithGemini,
+  generateGeminiSpeech
+} from './geminiService';
 import { INITIAL_REPORTS, SFSU_BUILDINGS, TRANSIT_ALERTS } from '../src/data/sfsuCampusData';
 import { AccessibilityReport, AssistanceRequest } from '../src/types';
 
@@ -44,7 +50,7 @@ let assistanceRequests: AssistanceRequest[] = [
 // 1. Analyze Accessibility Hazard with Gemini Multimodal AI
 apiRouter.post('/analyze-hazard', async (req: Request, res: Response) => {
   try {
-    const { textDescription, locationName, imageBase64, mimeType, sampleType } = req.body;
+    const { textDescription, locationName, imageBase64, mimeType } = req.body;
 
     let imagePart;
     if (imageBase64) {
@@ -60,7 +66,6 @@ apiRouter.post('/analyze-hazard', async (req: Request, res: Response) => {
       textDescription,
       locationName,
       imagePart,
-      sampleType,
     });
 
     res.json({
@@ -109,126 +114,49 @@ apiRouter.get('/reports', (_req: Request, res: Response) => {
   });
 });
 
-// 4. Submit New Accessibility Report & Generate Facilities Work Order (Firebase Firestore / Demo Mode)
-apiRouter.post('/reports', async (req: Request, res: Response) => {
+// 4. Submit New Accessibility Report & Generate Facilities Work Order
+apiRouter.post('/reports', (req: Request, res: Response) => {
   try {
     const {
-      reportId: customReportId,
-      hazardType,
-      severity,
-      summary,
-      accessibilityImpact,
-      description,
-      location,
-      imageUrl,
-      recommendedAction,
-      createdAt: customCreatedAt,
-      status: customStatus,
-      // Optional extra fields for map/building coordination
-      buildingId,
-      coordinates,
-      aiAnalysis,
       title,
+      description,
       category,
       locationName,
+      buildingId,
+      coordinates,
       urgency,
       photoUrl,
+      aiAnalysis,
       reporterName,
     } = req.body;
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const reportId = customReportId || `SFSU-REP-2026-${randomSuffix}`;
     const facilitiesWorkOrderId = `SFSU-FAC-2026-${randomSuffix}`;
-    const createdAt = customCreatedAt || new Date().toISOString();
-    const status = customStatus || 'pending';
-
-    const finalHazardType = hazardType || title || 'Blocked path';
-    const finalSeverity = severity || urgency || 'high';
-    const finalSummary = summary || description || 'Reported accessibility barrier on SFSU campus';
-    const finalAccessibilityImpact =
-      accessibilityImpact || aiAnalysis?.accessibilityImpact || 'Wheelchair users may be unable to reach the building entrance';
-    const finalLocation = location || locationName || 'SFSU Main Campus';
-    const finalImageUrl = imageUrl || photoUrl || '';
-    const finalRecommendedAction =
-      recommendedAction || aiAnalysis?.recommendedAction || aiAnalysis?.suggestedDetour || 'Use alternate entrance and submit facilities report';
-
-    // Firestore record matching exact schema specified in user prompt
-    const firestoreRecord = {
-      reportId,
-      hazardType: finalHazardType,
-      severity: finalSeverity,
-      summary: finalSummary,
-      accessibilityImpact: finalAccessibilityImpact,
-      description: finalSummary,
-      recommendedAction: finalRecommendedAction,
-      location: finalLocation,
-      imageUrl: finalImageUrl,
-      createdAt,
-      status,
-    };
-
-    let savedToFirebase = false;
-    // Attempt Firestore persistence if Firebase environment is configured
-    try {
-      if (process.env.FIREBASE_CONFIG || process.env.VITE_FIREBASE_API_KEY) {
-        // Dynamic import to avoid crash if unconfigured
-        const { initializeApp, getApps } = await import('firebase/app');
-        const { getFirestore, doc, setDoc } = await import('firebase/firestore');
-        const config = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
-        const app = getApps().length > 0 ? getApps()[0] : initializeApp(config);
-        const db = getFirestore(app);
-        await setDoc(doc(db, 'reports', reportId), firestoreRecord);
-        savedToFirebase = true;
-      }
-    } catch (fbErr) {
-      console.log('Firebase not configured, running in Demo Mode (In-memory storage):', fbErr);
-    }
-
-    // Also populate app-wide AccessibilityReport for Map, Elevators, and Dashboard sync
-    const mappedCategory = (
-      finalHazardType.toLowerCase().includes('elevator')
-        ? 'broken_elevator'
-        : finalHazardType.toLowerCase().includes('slope') || finalHazardType.toLowerCase().includes('ramp')
-        ? 'steep_slope'
-        : finalHazardType.toLowerCase().includes('door')
-        ? 'locked_door'
-        : 'obstructed_path'
-    ) as any;
 
     const newReport: AccessibilityReport = {
-      id: reportId,
-      title: `${finalHazardType} - ${finalLocation}`,
-      description: finalSummary,
-      category: category || mappedCategory,
-      locationName: finalLocation,
+      id: `rep-${Date.now()}`,
+      title: title || 'Campus Accessibility Incident',
+      description: description || 'Reported barrier on SFSU campus',
+      category: category || 'other',
+      locationName: locationName || 'SFSU Main Campus',
       buildingId,
       coordinates: coordinates || { lat: 37.7238, lng: -122.4785 },
-      urgency: (finalSeverity === 'high' ? 'critical' : finalSeverity === 'medium' ? 'high' : 'medium') as any,
+      urgency: urgency || aiAnalysis?.suggestedPriority || 'medium',
       status: 'work_order_created',
       facilitiesWorkOrderId,
-      photoUrl: finalImageUrl,
-      aiAnalysis: aiAnalysis || {
-        detectedHazard: finalHazardType,
-        hazardDescription: finalSummary,
-        adaComplianceStatus: 'non_compliant',
-        suggestedPriority: finalSeverity === 'high' ? 'critical' : 'high',
-        suggestedWorkOrderType: 'Facilities Services Accessibility Maintenance',
-        estimatedFixEffort: '1-2 hours',
-        suggestedDetour: finalRecommendedAction,
-        recommendedHotlineAction: 'DPRC Hotline notified. Dispatching student golf cart escort.',
-        confidence: 0.95,
-      },
+      photoUrl,
+      aiAnalysis,
       upvotes: 1,
       reportedAt: 'Just now',
       updatedAt: 'Just now',
       reporterName: reporterName || 'Anonymous SFSU Student',
     };
 
-    // Prepend to in-memory list
+    // Prepend new report to top
     reports = [newReport, ...reports];
 
     // If report is broken elevator, update elevator state in building
-    if ((category === 'broken_elevator' || finalHazardType.toLowerCase().includes('elevator')) && buildingId) {
+    if (category === 'broken_elevator' && buildingId) {
       const bldg = buildings.find((b) => b.id === buildingId);
       if (bldg && bldg.elevators.length > 0) {
         bldg.elevators[0].status = 'down';
@@ -238,13 +166,8 @@ apiRouter.post('/reports', async (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      report: firestoreRecord,
-      reportId,
-      status: 'pending',
-      facilitiesWorkOrderId,
-      savedToFirebase,
-      isDemoMode: !savedToFirebase,
-      message: `Report ${reportId} submitted successfully. Status: pending review.`,
+      report: newReport,
+      message: `Work Order ${facilitiesWorkOrderId} successfully created and dispatched to SFSU Facilities Services.`,
     });
   } catch (error: any) {
     res.status(500).json({
@@ -367,7 +290,51 @@ apiRouter.get('/transit-alerts', (_req: Request, res: Response) => {
   });
 });
 
-// 11. Export Project Archive (.tar.gz) for easy local download
+// 11. Gemini Voice Accessibility Assistant
+apiRouter.post('/gemini/voice-assist', async (req: Request, res: Response) => {
+  try {
+    const { query, audioBase64, mimeType } = req.body;
+
+    let userQuery = query ? String(query).trim() : '';
+
+    // If real microphone audio is sent, transcribe it using Gemini 3.5 Transcribe
+    if (!userQuery && audioBase64) {
+      userQuery = await transcribeAudioWithGemini(audioBase64, mimeType || 'audio/webm');
+    }
+
+    if (!userQuery) {
+      return res.json({
+        success: true,
+        result: {
+          identifiedNeed: 'No clear speech detected',
+          targetTab: 'map',
+          openModal: 'none',
+          transcription: '',
+          spokenResponse: "I couldn't hear clearly. Please tap the mic and speak your accessibility need, or type below.",
+          uiFeedback: 'No speech detected — please try speaking again',
+          suggestedQuickActions: [
+            'Request Gator Cart ride',
+            'Check Cesar Chavez elevators',
+            'Find step-free path to Library',
+          ],
+        },
+      });
+    }
+
+    const result = await processGeminiVoiceQuery(userQuery);
+    result.transcription = userQuery;
+
+    res.json({
+      success: true,
+      result,
+    });
+  } catch (err: any) {
+    console.error('Error in /gemini/voice-assist:', err);
+    res.status(500).json({ success: false, error: err.message || 'Internal voice assist error' });
+  }
+});
+
+// 12. Export Project Archive (.tar.gz) for easy local download
 apiRouter.get('/export-archive', (_req: Request, res: Response) => {
   try {
     const { execSync } = require('child_process');
@@ -375,30 +342,6 @@ apiRouter.get('/export-archive', (_req: Request, res: Response) => {
     execSync(`tar --exclude='node_modules' --exclude='.gmp_cache' --exclude='dist' -czf ${archivePath} -C . .`);
     res.download(archivePath, 'gatoraccess-sfhacks-2026.tar.gz');
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 12. Site-wide Voice AI Agent (Gemini Spoken Accessibility Guide)
-apiRouter.post('/voice-agent', async (req: Request, res: Response) => {
-  try {
-    const { query, context } = req.body;
-    if (!query || typeof query !== 'string') {
-      return res.status(400).json({ success: false, error: 'Query text is required' });
-    }
-
-    const result = await processVoiceAgentQuery({
-      userQuery: query,
-      context,
-    });
-
-    res.json({
-      success: true,
-      reply: result.reply,
-      suggestedAction: result.suggestedAction,
-    });
-  } catch (err: any) {
-    console.error('Error handling voice agent request:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

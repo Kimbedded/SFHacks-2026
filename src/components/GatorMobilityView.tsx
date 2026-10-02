@@ -276,35 +276,66 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
                   <MessageSquare className="w-4 h-4 text-purple-700" />
-                  Crisis Text Line (Free & Confidential)
+                  Crisis Text Line (Free &amp; Confidential)
                 </span>
-                <span className="text-[10px] text-slate-500 font-semibold">SMS Support</span>
+                <span className="text-[10px] text-slate-500 font-semibold">24/7 SMS</span>
               </div>
               <p className="text-xs text-slate-600">
                 If speaking out loud is difficult or overstimulating, text with a trained crisis counselor anytime.
               </p>
               <div className="pt-1 flex items-center justify-between">
-                <span className="text-xs font-mono font-bold text-slate-800">Text COURAGE to 741741</span>
+                <span className="text-xs font-mono font-bold text-slate-800">Text HOME to 741741</span>
                 <a
-                  href="sms:741741?body=COURAGE"
+                  href="sms:741741?body=HOME"
                   className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-lg shadow-sm"
                 >
-                  Start Texting
+                  Text HOME
                 </a>
               </div>
             </div>
 
-            {/* Walk-in Location Info */}
+            {/* 988 Suicide & Crisis Lifeline */}
+            <div className="p-3.5 rounded-xl bg-sky-50/60 border border-sky-200 flex items-center justify-between gap-3">
+              <div>
+                <span className="font-bold text-xs text-sky-950 block">988 Suicide &amp; Crisis Lifeline</span>
+                <span className="text-[11px] text-sky-800">Call or text 988 • TDD: (800) 799-4889</span>
+              </div>
+              <a
+                href="tel:988"
+                className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-lg shadow-sm whitespace-nowrap"
+              >
+                Call 988
+              </a>
+            </div>
+
+            {/* CA Peer Warmline */}
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 flex items-center justify-between gap-3">
+              <div>
+                <span className="font-bold text-xs text-emerald-950 block">CA Peer Mental Health Warm Line</span>
+                <span className="text-[11px] text-emerald-800 font-mono">(855) 845-7415 • 24/7 Peer Support</span>
+              </div>
+              <a
+                href="tel:8558457415"
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm whitespace-nowrap"
+              >
+                Call Warmline
+              </a>
+            </div>
+
+            {/* Walk-in Location Info from SFSU CAPS Directory */}
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs text-slate-600">
               <div className="font-bold text-slate-800 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-purple-700" />
-                <span>CAPS Walk-In Clinic Location:</span>
+                <span>SFSU CAPS Main Clinic Location &amp; Hours:</span>
               </div>
-              <p>
-                Student Services Building (SSB), Room 205. Monday – Friday, 8:00 AM – 5:00 PM.
+              <p className="text-slate-800 font-medium">
+                Gator Student Health Center, 3rd Floor (730 Font Blvd, SF, CA 94132)
+              </p>
+              <p className="text-[11px] text-slate-500">
+                Hours: Monday through Friday 8:00 a.m. – 4:45 p.m. • Phone: (415) 338-2208 (24/7 support) • Fax: (415) 338-6149
               </p>
               <p className="text-[11px] text-purple-900 font-semibold pt-1">
-                ♿ Fully wheelchair accessible via SSB main elevators.
+                ♿ Fully wheelchair accessible via Student Health Center main elevators.
               </p>
             </div>
           </div>

@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Header } from './components/Header';
-import { GoogleMapsStatusBanner } from './components/GoogleMapsStatusBanner';
+import { QuotaBanner } from './components/QuotaBanner';
 import { TransitAlertsBanner } from './components/TransitAlertsBanner';
 import { CampusMap } from './components/CampusMap';
 import { RoutePlanner } from './components/RoutePlanner';
@@ -14,15 +14,9 @@ import { SubmitReportView } from './components/SubmitReportView';
 import { ElevatorStatusDashboard } from './components/ElevatorStatusDashboard';
 import { GatorMobilityView } from './components/GatorMobilityView';
 import { HotlineModal } from './components/HotlineModal';
-import { GlobalVoiceAgent } from './components/GlobalVoiceAgent';
+import { GeminiVoiceWidget } from './components/GeminiVoiceWidget';
 import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
 import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
-import {
-  getGoogleMapsApiKey,
-  isApiKeyConfigured,
-  getLastGmpError,
-  GoogleMapsErrorInfo,
-} from './utils/googleMapsConfig';
 import {
   Compass,
   AlertTriangle,
@@ -36,29 +30,13 @@ import {
   ChevronDown,
 } from 'lucide-react';
 
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'map' | 'report' | 'elevators' | 'support'>('map');
   const [buildings, setBuildings] = useState<CampusBuilding[]>(SFSU_BUILDINGS);
   const [reports, setReports] = useState<AccessibilityReport[]>(INITIAL_REPORTS);
   const [transitAlerts] = useState(TRANSIT_ALERTS);
-
-  // Google Maps State
-  const [mapsError, setMapsError] = useState<GoogleMapsErrorInfo | null>(getLastGmpError());
-  const apiKey = getGoogleMapsApiKey();
-  const hasKey = isApiKeyConfigured();
-
-  useEffect(() => {
-    const handleGmpError = (event: Event) => {
-      const customEvent = event as CustomEvent<GoogleMapsErrorInfo>;
-      if (customEvent.detail) {
-        setMapsError(customEvent.detail);
-      }
-    };
-    window.addEventListener('gmp-error', handleGmpError);
-    return () => {
-      window.removeEventListener('gmp-error', handleGmpError);
-    };
-  }, []);
 
   // Navigation State
   const [originBuilding, setOriginBuilding] = useState<CampusBuilding | null>(SFSU_BUILDINGS[10]); // Transit hub default
@@ -185,16 +163,73 @@ export default function App() {
   const hasElevatorDownInDest =
     Boolean(destBuilding && destBuilding.elevators.some((e) => e.status === 'down'));
 
-  const appContent = (
-    <div
-      className={`min-h-screen flex flex-col font-sans transition-colors ${
-        highContrast
-          ? 'bg-black text-amber-300 font-mono contrast-125'
-          : 'bg-slate-100 text-slate-900'
-      } ${largeText ? 'text-lg' : 'text-base'}`}
-    >
-      {/* Google Maps Configuration & Status Banner */}
-      <GoogleMapsStatusBanner />
+  const handleGeminiVoiceNavigate = (
+    targetTab: 'map' | 'report' | 'elevators' | 'support',
+    actionDetails?: any,
+    openModal?: 'hotline' | 'none'
+  ) => {
+    setActiveTab(targetTab);
+
+    if (openModal === 'hotline') {
+      setIsHotlineOpen(true);
+    }
+
+    if (actionDetails) {
+      const origId = actionDetails.originBuildingId;
+      const destId = actionDetails.destBuildingId || actionDetails.destinationBuildingId || actionDetails.buildingId;
+      const bldgName = actionDetails.buildingName;
+
+      if (origId) {
+        const found = buildings.find(
+          (b) =>
+            b.id.toLowerCase() === origId.toLowerCase() ||
+            b.name.toLowerCase().includes(origId.toLowerCase()) ||
+            b.code.toLowerCase() === origId.toLowerCase()
+        );
+        if (found) setOriginBuilding(found);
+      }
+      if (destId) {
+        const found = buildings.find(
+          (b) =>
+            b.id.toLowerCase() === destId.toLowerCase() ||
+            b.name.toLowerCase().includes(destId.toLowerCase()) ||
+            b.code.toLowerCase() === destId.toLowerCase()
+        );
+        if (found) setDestBuilding(found);
+      } else if (bldgName) {
+        const found = buildings.find(
+          (b) =>
+            b.name.toLowerCase().includes(bldgName.toLowerCase()) ||
+            b.code.toLowerCase().includes(bldgName.toLowerCase())
+        );
+        if (found) setDestBuilding(found);
+      }
+
+      if (actionDetails.buildingName || actionDetails.reportCategory || actionDetails.reportDescription) {
+        setPrefillLocation({
+          name: actionDetails.buildingName || 'Campus Reported Location',
+          buildingId: origId || destId,
+        });
+      }
+    }
+
+    // Smoothly scroll down so the student immediately sees their route
+    setTimeout(() => {
+      window.scrollTo({ top: 180, behavior: 'smooth' });
+    }, 150);
+  };
+
+  return (
+    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'routes', 'geometry']}>
+      <div
+        className={`min-h-screen flex flex-col font-sans transition-colors ${
+          highContrast
+            ? 'bg-black text-amber-300 font-mono contrast-125'
+            : 'bg-slate-100 text-slate-900'
+        } ${largeText ? 'text-lg' : 'text-base'}`}
+      >
+        {/* Google Maps Quota Defense Banner (Case A compliant) */}
+        <QuotaBanner />
 
         {/* Visual Alerts Notification Bar if active */}
         {visualAlertsOnly && (
@@ -307,7 +342,6 @@ export default function App() {
                 buildings={buildings}
                 onReportSubmitted={handleReportSubmitted}
                 onRequestRide={() => setActiveTab('support')}
-                onNavigateToMap={() => setActiveTab('map')}
                 prefillLocation={prefillLocation}
               />
             </div>
@@ -345,14 +379,6 @@ export default function App() {
             setIsHotlineOpen(false);
             setActiveTab('support');
           }}
-        />
-
-        {/* Site-wide Global Hover Voice AI Agent */}
-        <GlobalVoiceAgent
-          activeTab={activeTab}
-          onNavigateTab={(tab) => setActiveTab(tab as any)}
-          onRequestGatorCart={() => setActiveTab('support')}
-          onOpenHotline={() => setIsHotlineOpen(true)}
         />
 
         {/* Global Footer */}
@@ -402,16 +428,13 @@ export default function App() {
             </div>
           </div>
         </footer>
+
+        {/* Global Gemini Voice Floating AI Assistant */}
+        <GeminiVoiceWidget
+          onNavigate={handleGeminiVoiceNavigate}
+          currentTab={activeTab}
+        />
       </div>
+    </APIProvider>
   );
-
-  if (hasKey && !mapsError) {
-    return (
-      <APIProvider apiKey={apiKey} libraries={['places', 'geometry', 'marker']}>
-        {appContent}
-      </APIProvider>
-    );
-  }
-
-  return appContent;
 }

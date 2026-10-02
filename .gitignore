@@ -7,3 +7,6 @@ coverage/
 .env*
 !.env.example
 .gmp_cache/
+*.tsbuildinfo
+node-compile-cache/
+.*.hm

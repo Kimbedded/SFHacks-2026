@@ -1,97 +1,90 @@
-export type NeighborhoodId =
-  | 'sfsu'
-  | 'mission'
-  | 'fidi'
-  | 'soma'
-  | 'sunset'
-  | 'richmond'
-  | 'tenderloin'
-  | 'twinpeaks'
-  | 'embarcadero'
-  | 'presidio';
+export type HackathonTrack = 
+  | 'AI for Social Good'
+  | 'Climate & Sustainability'
+  | 'HealthTech & Bio'
+  | 'Civic & Community Tech'
+  | 'Hardware & Embedded IoT'
+  | 'Open Innovation';
 
-export interface NeighborhoodData {
-  id: NeighborhoodId;
+export interface ProjectMember {
   name: string;
-  category: string;
-  lat: number;
-  lng: number;
-  x: number; // SVG map x coordinate (0 - 800)
-  y: number; // SVG map y coordinate (0 - 650)
-  aqi: number; // Air Quality Index
-  aqiStatus: 'Good' | 'Moderate' | 'Unhealthy for Sensitive Groups' | 'Unhealthy';
-  tempF: number;
-  heatIslandDeltaF: number; // difference from regional baseline
-  canopyCoveragePct: number;
-  trafficIndex: number; // 0 - 100
-  cleanlinessScore: number; // 0 - 100 (higher is cleaner)
-  solarOutputKw: number;
-  activeSensors: number;
-  recentAlert?: string;
-  notes: string;
+  role: string;
+  avatar?: string;
+  github?: string;
 }
 
-export interface EdgeSensorNode {
-  id: string;
-  name: string;
-  location: string;
-  hardware: string; // e.g., 'ESP32-S3 + BME688 + PM2.5'
-  protocol: 'LoRaWAN 915MHz' | 'NB-IoT' | 'BLE Mesh';
-  batteryPct: number;
-  isSolarCharging: boolean;
-  rssi: number; // dBm
-  lastPingSecs: number;
-  status: 'online' | 'degraded' | 'calibrating';
-  readings: {
-    temperature: number;
-    humidity: number;
-    pm25: number;
-    co2: number;
-    vocIndex: number;
-    noiseDb: number;
-  };
-  anomalyDetected?: string;
-}
-
-export interface IncidentClassification {
+export interface Project {
   id: string;
   title: string;
-  timestamp: string;
+  tagline: string;
+  description: string;
+  track: HackathonTrack;
+  techStack: string[];
+  members: ProjectMember[];
+  githubUrl?: string;
+  liveDemoUrl?: string;
+  videoUrl?: string;
+  tableNumber: string;
+  votes: number;
+  featured?: boolean;
+  createdAt: string;
+}
+
+export interface ScheduleEvent {
+  id: string;
+  title: string;
+  description: string;
   location: string;
+  startTime: string; // e.g., "2026-10-02T18:00:00"
+  endTime: string;
+  category: 'Keynote' | 'Workshop' | 'Meal' | 'Deadline' | 'Activity' | 'Mentorship';
+  speaker?: string;
+  day: 1 | 2 | 3;
+}
+
+export interface TeamPost {
+  id: string;
+  authorName: string;
+  authorEmail: string;
+  authorDiscord: string;
+  type: 'seeking-team' | 'team-seeking-members';
+  currentTeamSize?: number;
+  projectIdea?: string;
+  preferredTrack: HackathonTrack | 'Any';
+  skillsLookingFor: string[];
+  skillsOffered: string[];
+  bio: string;
+  createdAt: string;
+}
+
+export interface MentorTicket {
+  id: string;
+  teamName: string;
+  tableNumber: string;
+  contactHandle: string; // Slack / Discord / Phone
+  topic: 'Frontend/Web' | 'Backend/API' | 'AI/ML' | 'Hardware/Embedded' | 'Mobile' | 'Design/Pitch';
+  description: string;
+  status: 'pending' | 'claimed' | 'resolved';
+  claimedBy?: string;
+  createdAt: string;
+}
+
+export interface HardwareItem {
+  id: string;
+  name: string;
+  category: 'Microcontrollers' | 'Sensors & Modules' | 'Displays' | 'Tools & Kits';
+  totalQuantity: number;
+  availableQuantity: number;
+  description: string;
+  specs: string[];
   imageUrl?: string;
-  imageThumbnail: string;
-  head1_category: 'Infrastructure & Drainage' | 'Urban Heat & Canopy' | 'Waste & Composting' | 'Transit & Pedestrian' | 'Air Quality & Emissions';
-  head2_urgency: {
-    score: number; // 1 - 10
-    slaHours: number;
-    level: 'Low' | 'Medium' | 'High' | 'Critical';
-  };
-  head3_impact: {
-    carbonImpactKg: number;
-    affectedRadiusMeters: number;
-    heatMitigationScore: number;
-  };
-  head4_routing: {
-    targetAgency: 'SF Public Works' | 'SFMTA (Transit)' | 'SF Department of Environment' | 'Recology Clean Team' | 'SFPUC Water';
-    automatedAction: string;
-    ticketId: string;
-  };
-  confidence: number;
-  userSubmitted?: boolean;
 }
 
-export interface SimulationParams {
-  canopyTreesCount: number; // 0 - 25,000
-  solarPanelsMw: number; // 0 - 120
-  muniTransitBoostPct: number; // 0 - 100%
-  coolPavementsPct: number; // 0 - 50%
-  compostDiversionRate: number; // 50% - 95%
-}
-
-export interface SimulationResults {
-  projectedTempReductionF: number;
-  annualCo2ReductionTons: number;
-  healthcareSavingsUsd: number;
-  stormwaterRetainedGallons: number;
-  cityGreenScore: string; // e.g., 'A+'
+export interface TrackPrize {
+  title: string;
+  sponsor: string;
+  prizeAmount: string;
+  description: string;
+  criteria: string[];
+  tags: string[];
 }
