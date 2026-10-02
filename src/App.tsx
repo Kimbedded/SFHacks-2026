@@ -18,8 +18,10 @@ import { ElevatorStatusDashboard } from './components/ElevatorStatusDashboard';
 import { GatorMobilityView } from './components/GatorMobilityView';
 import { HotlineModal } from './components/HotlineModal';
 import { GeminiVoiceWidget } from './components/GeminiVoiceWidget';
+import { GatorAppIcon } from './components/GatorAppIcon';
 import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
 import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
+import { LoginPage, AppUser } from './components/LoginPage';
 import {
   Compass,
   AlertTriangle,
@@ -33,7 +35,6 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import {
-  FaWheelchair,
   FaPhone,
   FaHeart,
   FaArrowUpRightFromSquare,
@@ -46,6 +47,16 @@ const GOOGLE_MAPS_API_KEY =
   'AIzaSyDDi2LqAxzS8Pfq-WS-MLIsyoB7cOyKAms';
 
 export default function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('gatoraccess_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState<'map' | 'report' | 'elevators' | 'support'>('map');
   const [buildings, setBuildings] = useState<CampusBuilding[]>(SFSU_BUILDINGS);
   const [reports, setReports] = useState<AccessibilityReport[]>(INITIAL_REPORTS);
@@ -66,6 +77,26 @@ export default function App() {
   const [largeText, setLargeText] = useState(false);
   const [visualAlertsOnly, setVisualAlertsOnly] = useState(false);
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(true);
+
+  // Handle Login Success
+  const handleLoginSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem('gatoraccess_user', JSON.stringify(user));
+    } catch (e) {
+      console.warn('Could not save login session to localStorage:', e);
+    }
+  };
+
+  // Handle Logout
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('gatoraccess_user');
+    } catch (e) {
+      console.warn('Could not clear login session:', e);
+    }
+  };
 
   // Fetch live reports and building statuses from API & sync with Firebase
   useEffect(() => {
@@ -264,6 +295,11 @@ export default function App() {
     }, 150);
   };
 
+  // If user is not logged in, render the login page guard
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'geometry', 'marker']}>
       <div
@@ -299,6 +335,8 @@ export default function App() {
           setLargeText={setLargeText}
           visualAlertsOnly={visualAlertsOnly}
           setVisualAlertsOnly={setVisualAlertsOnly}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         {/* SFSU Transit & BART Alert Bar */}
@@ -441,9 +479,9 @@ export default function App() {
         <footer className="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
             <div className="flex items-center gap-3 text-center md:text-left">
-              <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-purple-900/60 text-amber-300 shrink-0">
-                <FaWheelchair className="w-5 h-5" />
-              </span>
+              <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 shadow">
+                <GatorAppIcon className="w-full h-full" />
+              </div>
               <div>
                 <div className="font-bold text-white text-sm">GatorAccess</div>
                 <div className="text-[11px] text-slate-400">San Francisco State University</div>

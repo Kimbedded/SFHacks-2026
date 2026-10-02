@@ -1,4 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
+import fs from 'fs';
+import sharp from 'sharp';
+
+const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000">
   <defs>
     <!-- Clip to rounded badge so nothing bleeds past outer border -->
     <clipPath id="badge-clip">
@@ -138,4 +141,40 @@
     <rect x="0" y="0" width="1000" height="1000" rx="140" ry="140"
           fill="none" stroke="#33113D" stroke-width="60" />
   </g>
-</svg>
+</svg>`;
+
+async function main() {
+  fs.writeFileSync('public/gator-icon.svg', svgContent);
+  console.log('Saved public/gator-icon.svg');
+
+  const svgBuffer = Buffer.from(svgContent);
+
+  // Generate 512x512 PNG
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png()
+    .toFile('public/gator-icon.png');
+  console.log('Generated public/gator-icon.png');
+
+  // Copy to pwa and apple icons
+  await sharp(svgBuffer)
+    .resize(512, 512)
+    .png()
+    .toFile('public/pwa-512x512.png');
+  await sharp(svgBuffer)
+    .resize(192, 192)
+    .png()
+    .toFile('public/pwa-192x192.png');
+  await sharp(svgBuffer)
+    .resize(180, 180)
+    .png()
+    .toFile('public/apple-touch-icon.png');
+
+  fs.copyFileSync('public/gator-icon.svg', 'public/icon.svg');
+  console.log('All icons successfully updated!');
+}
+
+main().catch(err => {
+  console.error(err);
+  process.exit(1);
+});

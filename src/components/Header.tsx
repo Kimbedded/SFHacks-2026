@@ -12,7 +12,11 @@ import {
   FaVolumeHigh,
   FaVolumeXmark,
   FaCamera,
+  FaUser,
+  FaRightFromBracket,
 } from 'react-icons/fa6';
+import { AppUser } from './LoginPage';
+import { GatorAppIcon } from './GatorAppIcon';
 
 interface HeaderProps {
   activeTab: 'map' | 'report' | 'elevators' | 'support';
@@ -25,6 +29,8 @@ interface HeaderProps {
   setLargeText: (v: boolean | ((prev: boolean) => boolean)) => void;
   visualAlertsOnly: boolean;
   setVisualAlertsOnly: (v: boolean | ((prev: boolean) => boolean)) => void;
+  currentUser?: AppUser | null;
+  onLogout?: () => void;
 }
 
 export function Header({
@@ -38,6 +44,8 @@ export function Header({
   setLargeText,
   visualAlertsOnly,
   setVisualAlertsOnly,
+  currentUser,
+  onLogout,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-40 bg-gradient-to-r from-purple-950 via-purple-900 to-indigo-950 text-white shadow-lg border-b border-purple-800">
@@ -93,8 +101,8 @@ export function Header({
       <div className="w-full px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         {/* Brand */}
         <div className="flex items-center space-x-3 cursor-pointer min-w-0" onClick={() => setActiveTab('map')}>
-          <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 font-black flex items-center justify-center shadow-md border-2 border-amber-300">
-            <FaWheelchair className="w-5 h-5 text-purple-950" />
+          <div className="w-11 h-11 sm:w-12 sm:h-12 shrink-0 rounded-2xl overflow-hidden shadow-md transition-transform hover:scale-105 active:scale-95">
+            <GatorAppIcon className="w-full h-full" />
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -111,11 +119,35 @@ export function Header({
           </div>
         </div>
 
-        {/* Quick Hotline & Ride Request CTA */}
+        {/* Quick Hotline & Ride Request CTA + User Profile */}
         <div className="flex items-center space-x-2">
+          {currentUser && (
+            <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-purple-900/60 border border-purple-700/50 text-xs">
+              {currentUser.photoURL ? (
+                <img
+                  src={currentUser.photoURL}
+                  alt={currentUser.displayName}
+                  className="w-5 h-5 rounded-full border border-amber-400"
+                />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-amber-400 text-purple-950 font-bold flex items-center justify-center text-[10px]">
+                  {currentUser.displayName.charAt(0)}
+                </div>
+              )}
+              <div className="leading-tight text-left">
+                <div className="font-semibold text-white truncate max-w-[120px]">
+                  {currentUser.displayName}
+                </div>
+                <div className="text-[10px] text-amber-300">
+                  {currentUser.isGuest ? 'Guest Access' : 'SFSU Verified'}
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={onOpenRideRequest}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-bold text-xs rounded-xl shadow-md transition-transform active:scale-95 border border-amber-300"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-bold text-xs rounded-xl shadow-md transition-transform active:scale-95 border border-amber-300 cursor-pointer"
             title="Request Gator Mobility Golf Cart Shuttle"
           >
             <FaCar className="w-3.5 h-3.5 shrink-0" />
@@ -125,13 +157,24 @@ export function Header({
 
           <button
             onClick={onOpenHotline}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-400/40 shadow-sm transition-transform active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-400/40 shadow-sm transition-transform active:scale-95 cursor-pointer"
             title="SFSU Accessibility Hotlines (DPRC, CAPS, UPD)"
           >
             <FaPhone className="w-3 h-3 text-amber-300 shrink-0" />
             <span className="hidden sm:inline">DPRC Hotlines</span>
             <span className="sm:hidden">Hotlines</span>
           </button>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white/10 hover:bg-red-900/60 hover:text-red-200 text-purple-200 rounded-xl text-xs transition-colors border border-white/10 cursor-pointer"
+              title="Log out or switch account"
+            >
+              <FaRightFromBracket className="w-3 h-3" />
+              <span className="hidden md:inline">Log out</span>
+            </button>
+          )}
         </div>
       </div>
 
