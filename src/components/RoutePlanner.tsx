@@ -39,6 +39,7 @@ import {
 } from 'react-icons/fa6';
 import { getGoogleMapsWalkingRoute, getGoogleMapsExternalUrl, getRouteElevationGain } from '../utils/googleDirections';
 import { UnifiedRouteModal } from './UnifiedRouteModal';
+import { NavigatorPrompt, NavigatorResponse } from './NavigatorPrompt';
 
 interface RoutePlannerProps {
   mapPanel?: React.ReactNode;
@@ -313,7 +314,8 @@ export function RoutePlanner({
   const handleSelectCorridor = async (
     corridor: AccessibleCorridorItem,
     openModal = false,
-    smoothScroll = true
+    smoothScroll = true,
+    originOverride?: OriginPreset
   ) => {
     const requestId = ++routeRequestId.current;
     setSelectedCorridor(corridor);
@@ -326,12 +328,13 @@ export function RoutePlanner({
       setDestBuilding(destBldg);
     }
 
-    const startCoord = selectedOrigin.coordinates;
+    const origin = originOverride || selectedOrigin;
+    const startCoord = origin.coordinates;
     const endCoord = corridor.destinationCoords;
     const originLabel =
-      selectedOrigin.id === 'origin-current'
-        ? selectedOrigin.shortName
-        : `${selectedOrigin.shortName} (${selectedOrigin.address})`;
+      origin.id === 'origin-current'
+        ? origin.shortName
+        : `${origin.shortName} (${origin.address})`;
     const destLabel = `${corridor.destinationName} (${corridor.destinationAddress})`;
 
     // Check elevator outages
@@ -366,7 +369,7 @@ export function RoutePlanner({
       }));
       if (steps.length === 0) {
         steps.push({
-          instruction: `Start at ${selectedOrigin.shortName}`,
+          instruction: `Start at ${origin.shortName}`,
           accessibilityNotes: 'Turn-by-turn directions are unavailable. Open Google Maps for navigation.',
           isElevatorNeeded: false,
           isRamp: false,
@@ -427,6 +430,19 @@ export function RoutePlanner({
     } finally {
       if (requestId === routeRequestId.current) setIsLoadingRoute(false);
     }
+  };
+
+  // Apply a Gemini navigator decision using only the fixed campus selections
+  const handleNavigatorResult = (result: NavigatorResponse) => {
+    if (result.mobilityProfile) setMobilityProfile(result.mobilityProfile);
+    if (result.action !== 'navigate') return;
+    const origin = ORIGIN_PRESETS.find((o) => o.id === result.originId && o.id !== 'origin-current');
+    if (origin) {
+      setSelectedOrigin(origin);
+      setOriginBuilding(buildings.find((b) => b.id === origin.buildingId) || null);
+    }
+    const corridor = SFSU_ACCESSIBLE_CORRIDORS.find((c) => c.id === result.corridorId);
+    if (corridor) handleSelectCorridor(corridor, false, true, origin);
   };
 
   // Text-to-speech for turn-by-turn waypoints
@@ -974,6 +990,14 @@ export function RoutePlanner({
             })}
           </div>
         </details>
+
+        <NavigatorPrompt
+          origins={ORIGIN_PRESETS}
+          selectedOriginId={selectedOrigin.id}
+          mobilityProfile={mobilityProfile}
+          userLocation={userLocation}
+          onResult={handleNavigatorResult}
+        />
 
         {/* FAQ Guide Expansion */}
         {showFaqGuide && (

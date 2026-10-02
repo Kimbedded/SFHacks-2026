@@ -6,6 +6,7 @@ import {
   transcribeAudioWithGemini,
   processGeminiVoiceQuery,
   runCorridorNavigatorAI,
+  classifyGeminiError,
 } from './geminiService';
 import { INITIAL_REPORTS, SFSU_BUILDINGS, SFSU_ACCESSIBLE_CORRIDORS } from '../src/data/sfsuCampusData';
 import { AccessibilityReport, AssistanceRequest } from '../src/types';
@@ -510,6 +511,6 @@ apiRouter.post('/navigator/ask', async (req: Request, res: Response) => {
     res.json({ success: true, ...result });
   } catch (err: any) {
     console.error('Error in /navigator/ask:', err);
-    res.status(500).json({ success: false, error: err.message || 'Navigator request failed' });
+    res.status(500).json({ success: false, error: classifyGeminiError(err).message || 'Navigator request failed' });
   }
 });
