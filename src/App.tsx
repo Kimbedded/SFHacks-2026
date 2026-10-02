@@ -20,6 +20,7 @@ import { HotlineModal } from './components/HotlineModal';
 import { GeminiVoiceWidget } from './components/GeminiVoiceWidget';
 import { SFSU_BUILDINGS, INITIAL_REPORTS, TRANSIT_ALERTS } from './data/sfsuCampusData';
 import { CampusBuilding, AccessibilityReport, AccessibleRouteOption, Coordinates } from './types';
+import { LoginPage, AppUser } from './components/LoginPage';
 import {
   Compass,
   AlertTriangle,
@@ -39,6 +40,16 @@ const GOOGLE_MAPS_API_KEY =
   'AIzaSyDDi2LqAxzS8Pfq-WS-MLIsyoB7cOyKAms';
 
 export default function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('gatoraccess_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
   const [activeTab, setActiveTab] = useState<'map' | 'report' | 'elevators' | 'support'>('map');
   const [buildings, setBuildings] = useState<CampusBuilding[]>(SFSU_BUILDINGS);
   const [reports, setReports] = useState<AccessibilityReport[]>(INITIAL_REPORTS);
@@ -59,6 +70,26 @@ export default function App() {
   const [largeText, setLargeText] = useState(false);
   const [visualAlertsOnly, setVisualAlertsOnly] = useState(false);
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(true);
+
+  // Handle Login Success
+  const handleLoginSuccess = (user: AppUser) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem('gatoraccess_user', JSON.stringify(user));
+    } catch (e) {
+      console.warn('Could not save login session to localStorage:', e);
+    }
+  };
+
+  // Handle Logout
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('gatoraccess_user');
+    } catch (e) {
+      console.warn('Could not clear login session:', e);
+    }
+  };
 
   // Fetch live reports and building statuses from API & sync with Firebase
   useEffect(() => {
@@ -257,6 +288,11 @@ export default function App() {
     }, 150);
   };
 
+  // If user is not logged in, render the login page guard
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <APIProvider apiKey={GOOGLE_MAPS_API_KEY} libraries={['places', 'geometry', 'marker']}>
       <div
@@ -292,6 +328,8 @@ export default function App() {
           setLargeText={setLargeText}
           visualAlertsOnly={visualAlertsOnly}
           setVisualAlertsOnly={setVisualAlertsOnly}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         {/* SFSU Transit & BART Alert Bar */}
