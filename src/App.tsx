@@ -239,7 +239,21 @@ export default function App() {
                 </div>
               )}
 
-              {/* Interactive Google Map */}
+              {/* 1. Low-Barrier Pathfinder & "Take me to..." (Upper Side of Maps) */}
+              <RoutePlanner
+                buildings={buildings}
+                originBuilding={originBuilding}
+                destBuilding={destBuilding}
+                setOriginBuilding={setOriginBuilding}
+                setDestBuilding={setDestBuilding}
+                activeRoute={activeRoute}
+                setActiveRoute={setActiveRoute}
+                onRequestRide={() => setActiveTab('support')}
+                hasElevatorDownInDest={hasElevatorDownInDest}
+                onOpenHotline={() => setIsHotlineOpen(true)}
+              />
+
+              {/* 2. Interactive Google Map (Below Pathfinder) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
@@ -261,19 +275,6 @@ export default function App() {
                   onReportAtLocation={handleReportAtLocation}
                 />
               </div>
-
-              {/* Route Planner & Elevation Analysis */}
-              <RoutePlanner
-                buildings={buildings}
-                originBuilding={originBuilding}
-                destBuilding={destBuilding}
-                setOriginBuilding={setOriginBuilding}
-                setDestBuilding={setDestBuilding}
-                activeRoute={activeRoute}
-                setActiveRoute={setActiveRoute}
-                onRequestRide={() => setActiveTab('support')}
-                hasElevatorDownInDest={hasElevatorDownInDest}
-              />
             </div>
           )}
 
