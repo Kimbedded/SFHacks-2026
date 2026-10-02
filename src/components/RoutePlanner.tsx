@@ -963,7 +963,7 @@ export function RoutePlanner({
                   }}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-purple-900 text-white shadow-md border-2 border-purple-950 scale-[1.02]'
+                      ? 'bg-purple-900 text-white shadow-none border-2 border-purple-950 scale-[1.02]'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
                   }`}
                 >
@@ -1045,14 +1045,14 @@ export function RoutePlanner({
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => scrollCorridorCarousel('up')}
-                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 flex items-center justify-center transition-colors border border-slate-200 cursor-pointer shadow-2xs"
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 flex items-center justify-center transition-colors border border-slate-200 cursor-pointer shadow-none"
                   title="Previous corridors"
                 >
                   <FaChevronUp className="w-3 h-3" />
                 </button>
                 <button
                   onClick={() => scrollCorridorCarousel('down')}
-                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 flex items-center justify-center transition-colors border border-slate-200 cursor-pointer shadow-2xs"
+                  className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-700 hover:text-purple-900 flex items-center justify-center transition-colors border border-slate-200 cursor-pointer shadow-none"
                   title="Next corridors"
                 >
                   <FaChevronDown className="w-3 h-3" />
@@ -1146,7 +1146,7 @@ export function RoutePlanner({
                         e.stopPropagation();
                         handleSelectCorridor(corridor, false, true);
                       }}
-                      className="flex-1 py-2.5 px-3 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                      className="flex-1 py-2.5 px-3 rounded-xl bg-purple-900 hover:bg-purple-800 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-none transition-colors cursor-pointer"
                       title="View turn-by-turn directions beside the map"
                     >
                       <span>View Route & Map</span>

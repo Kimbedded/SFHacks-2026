@@ -440,7 +440,7 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
                 startRecording();
               }, 200);
             }}
-            className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-purple-800 via-indigo-700 to-purple-600 text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-white/40 group focus:outline-none focus:ring-4 focus:ring-purple-300"
+            className="relative w-14 h-14 rounded-full bg-gradient-to-tr    text-white flex items-center justify-center shadow-none hover:scale-105 active:scale-95 transition-all duration-300 border-2 border-white/40 group focus:outline-none  focus:ring-purple-300"
             aria-label="Open Gemini Voice Accessibility Assistant"
           >
             {/* Pulsing halo */}
@@ -623,7 +623,7 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
                       onNavigate(lastResult.targetTab, lastResult.actionDetails, lastResult.openModal);
                       setIsOpen(false);
                     }}
-                    className="w-full mt-1.5 py-1.5 px-3 bg-purple-800 hover:bg-purple-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                    className="w-full mt-1.5 py-1.5 px-3 bg-purple-800 hover:bg-purple-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-none transition-transform active:scale-95"
                   >
                     {getTabIcon(lastResult.targetTab)}
                     <span>
@@ -689,9 +689,9 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
                 <button
                   onClick={isRecording ? stopRecording : startRecording}
                   disabled={isProcessing}
-                  className={`relative p-4 rounded-full transition-all duration-300 shadow-xl flex items-center justify-center ${
+                  className={`relative p-4 rounded-full transition-all duration-300 shadow-none flex items-center justify-center ${
                     isRecording
-                      ? 'bg-rose-600 text-white ring-8 ring-rose-200 scale-110 shadow-rose-200'
+                      ? 'bg-rose-600 text-white  ring-rose-200 scale-110 shadow-rose-200'
                       : isProcessing
                       ? 'bg-purple-400 text-white cursor-wait'
                       : 'bg-purple-700 hover:bg-purple-800 text-white hover:scale-105'
@@ -742,7 +742,7 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
                 <button
                   type="submit"
                   disabled={!transcript.trim() || isProcessing}
-                  className="p-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-40 text-white text-xs font-bold shadow-sm transition-all"
+                  className="p-2 rounded-xl bg-purple-700 hover:bg-purple-800 disabled:opacity-40 text-white text-xs font-bold shadow-none transition-all"
                   aria-label="Send query"
                 >
                   {isProcessing ? (

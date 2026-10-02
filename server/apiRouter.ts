@@ -4,9 +4,10 @@ import {
   planAccessibleRouteAI, 
   processVoiceAgentQuery,
   transcribeAudioWithGemini,
-  processGeminiVoiceQuery 
+  processGeminiVoiceQuery,
+  runCorridorNavigatorAI,
 } from './geminiService';
-import { INITIAL_REPORTS, SFSU_BUILDINGS } from '../src/data/sfsuCampusData';
+import { INITIAL_REPORTS, SFSU_BUILDINGS, SFSU_ACCESSIBLE_CORRIDORS } from '../src/data/sfsuCampusData';
 import { AccessibilityReport, AssistanceRequest } from '../src/types';
 
 import { readBartTransit } from './bartTransitService';
@@ -71,6 +72,10 @@ apiRouter.post('/analyze-hazard', async (req: Request, res: Response) => {
     }
 
     // Strip data:image/...;base64, prefix if present
+    const imageMime = imageBase64.match(/^data:([^;]+);base64,/i)?.[1] || mimeType || 'image/jpeg';
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(imageMime)) {
+      return res.status(400).json({ success: false, error: 'Invalid Image: Use a JPG, PNG, or WebP image.' });
+    }
     const cleanBase64 = imageBase64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, '').trim();
     if (!cleanBase64 || cleanBase64.length < 50) {
       return res.status(400).json({
@@ -80,7 +85,7 @@ apiRouter.post('/analyze-hazard', async (req: Request, res: Response) => {
     }
 
     const imagePart = {
-      mimeType: mimeType || 'image/jpeg',
+      mimeType: imageMime,
       data: cleanBase64,
     };
 
@@ -483,3 +488,28 @@ apiRouter.post('/gemini/voice-assist', async (req: Request, res: Response) => {
   }
 });
 
+
+// 13. AI Corridor Navigator (prompt box -> fixed corridor/origin/condition selections)
+apiRouter.post('/navigator/ask', async (req: Request, res: Response) => {
+  try {
+    const { prompt, origins, currentOriginId, currentProfile, userLocation } = req.body;
+    if (!prompt || typeof prompt !== 'string' || !Array.isArray(origins)) {
+      return res.status(400).json({ success: false, error: 'prompt and origins are required' });
+    }
+    const result = await runCorridorNavigatorAI({
+      prompt: prompt.slice(0, 500),
+      origins,
+      corridors: SFSU_ACCESSIBLE_CORRIDORS.map((c) => ({ id: c.id, name: `${c.title} (${c.destinationName})` })),
+      currentOriginId,
+      currentProfile,
+      elevatorsDown: buildings.flatMap((b) =>
+        b.elevators.filter((e) => e.status === 'down').map((e) => `${b.name}: ${e.name}`)
+      ),
+      userLocation,
+    });
+    res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error('Error in /navigator/ask:', err);
+    res.status(500).json({ success: false, error: err.message || 'Navigator request failed' });
+  }
+});

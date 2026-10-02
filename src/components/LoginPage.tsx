@@ -300,7 +300,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded-lg text-sm border border-slate-300 shadow-sm flex items-center justify-center gap-3 transition cursor-pointer disabled:opacity-50"
+                className="w-full py-2.5 px-4 bg-white hover:bg-slate-50 text-slate-800 font-semibold rounded-lg text-sm border border-slate-300 shadow-none flex items-center justify-center gap-3 transition cursor-pointer disabled:opacity-50"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -328,7 +328,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 type="button"
                 onClick={handleGuestLogin}
                 disabled={loading}
-                className="w-full py-2.5 px-4 bg-[#eaaa00] hover:bg-[#d89800] text-[#231161] font-bold rounded-lg text-sm shadow-sm flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
+                className="w-full py-2.5 px-4 bg-[#eaaa00] hover:bg-[#d89800] text-[#231161] font-bold rounded-lg text-sm shadow-none flex items-center justify-center gap-2 transition cursor-pointer disabled:opacity-50"
               >
                 <span>Continue as guest</span>
               </button>

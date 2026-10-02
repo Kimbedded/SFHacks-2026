@@ -47,3 +47,12 @@
   :focus-visible { outline: 3px solid #7c3aed; }
   input, select, textarea { min-width: 0; min-height: 44px; }
 }
+
+/* Keep button decoration consistent while retaining keyboard focus. */
+button {
+  box-shadow: none !important;
+}
+button:focus-visible {
+  outline: 3px solid #7c3aed;
+  outline-offset: 3px;
+}

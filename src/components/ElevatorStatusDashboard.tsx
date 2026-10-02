@@ -211,7 +211,7 @@ export function ElevatorStatusDashboard({
 
           <button
             onClick={onRequestRide}
-            className="px-3.5 py-3 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5"
+            className="px-3.5 py-3 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl shadow-none transition-transform hover:scale-105 active:scale-95 flex items-center gap-1.5"
           >
             <span>Gator Shuttle</span>
             <FaArrowRight className="w-3.5 h-3.5" />
@@ -225,7 +225,7 @@ export function ElevatorStatusDashboard({
           onClick={() => setActiveSubTab('elevators')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all ${
             activeSubTab === 'elevators'
-              ? 'bg-purple-900 text-amber-300 shadow-md'
+              ? 'bg-purple-900 text-amber-300 shadow-none'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -237,7 +237,7 @@ export function ElevatorStatusDashboard({
           onClick={() => setActiveSubTab('facilities')}
           className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all ${
             activeSubTab === 'facilities'
-              ? 'bg-purple-900 text-amber-300 shadow-md'
+              ? 'bg-purple-900 text-amber-300 shadow-none'
               : 'text-slate-600 hover:bg-slate-100'
           }`}
         >
@@ -406,7 +406,7 @@ export function ElevatorStatusDashboard({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setIsCreatingTicket(!isCreatingTicket)}
-                className="px-3 py-1.5 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition-transform active:scale-95"
+                className="px-3 py-1.5 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-none transition-transform active:scale-95"
               >
                 <FaPlus className="w-3.5 h-3.5" />
                 <span>Report an issue</span>
@@ -528,7 +528,7 @@ export function ElevatorStatusDashboard({
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg shadow-md transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-amber-300 font-bold text-xs rounded-lg shadow-none transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit issue'}
                 </button>
@@ -653,7 +653,7 @@ export function ElevatorStatusDashboard({
 
               <button
                 onClick={() => onUpvoteReport(rep.id)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 hover:border-purple-400 hover:text-purple-900 shadow-sm shrink-0 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 hover:border-purple-400 hover:text-purple-900 shadow-none shrink-0 transition-colors"
               >
                 <FaThumbsUp className="w-3.5 h-3.5 text-purple-700" />
                 <span>Verify ({rep.upvotes})</span>

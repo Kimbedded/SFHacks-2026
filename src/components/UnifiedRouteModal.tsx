@@ -179,7 +179,7 @@ export function UnifiedRouteModal({
 
             <button
               onClick={onRequestRide}
-              className="px-3 py-2 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl shadow-sm transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              className="px-3 py-2 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl shadow-none transition-transform active:scale-95 flex items-center gap-1.5 cursor-pointer"
               title="Request Gator Cart electric golf shuttle"
             >
               <FaCar className="w-3.5 h-3.5" />
@@ -236,7 +236,7 @@ export function UnifiedRouteModal({
                   <button
                     disabled={selectedWaypointIndex === totalSteps - 1}
                     onClick={() => onSelectWaypoint(Math.min(totalSteps - 1, selectedWaypointIndex + 1))}
-                    className="w-7 h-7 rounded-lg bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white flex items-center justify-center transition-colors shadow-sm cursor-pointer"
+                    className="w-7 h-7 rounded-lg bg-purple-700 hover:bg-purple-600 disabled:opacity-40 text-white flex items-center justify-center transition-colors shadow-none cursor-pointer"
                     title="Next waypoint"
                   >
                     <FaChevronRight className="w-3 h-3" />
@@ -257,7 +257,7 @@ export function UnifiedRouteModal({
                       onClick={() => onSelectWaypoint(idx)}
                       className={`px-2.5 py-1 rounded-lg text-xs font-black flex items-center gap-1 shrink-0 transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-amber-400 text-purple-950 shadow-lg scale-105 ring-2 ring-white'
+                          ? 'bg-amber-400 text-purple-950 shadow-none scale-105  ring-white'
                           : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
                       }`}
                     >
@@ -282,7 +282,7 @@ export function UnifiedRouteModal({
                     onClick={() => onSelectWaypoint(idx)}
                     className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer space-y-2 ${
                       isSelected
-                        ? 'bg-purple-950/80 border-amber-400 shadow-xl ring-2 ring-amber-400/40'
+                        ? 'bg-purple-950/80 border-purple-400 shadow-none '
                         : 'bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 hover:border-purple-400/50'
                     }`}
                   >

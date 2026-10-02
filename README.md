@@ -113,24 +113,11 @@ VITE_GOOGLE_MAPS_API_KEY="YOUR_GOOGLE_MAPS_API_KEY"
 - **Campus Police & Safety Escort**: (415) 338-5200
 - **Facilities Services Work Order Desk**: (415) 338-1568
 
-## Live BART updates through Firestore
+## BART transit alerts (mock)
 
-The Express server fetches BART service advisories and elevator status on startup
-and every five minutes, then atomically replaces `transitFeeds/bart` in the
-configured Firestore database. The React banner subscribes directly to that
-Firestore document; `/api/transit-alerts` also reads the saved document without
-calling BART. Failed refreshes preserve the previous snapshot and its timestamp.
-Only BART updates are shown; the old demo Muni and discontinued SFSU shuttle
-alerts are not used by the banner.
-
-Before starting the server, configure Firebase Admin credentials using
-`GOOGLE_APPLICATION_CREDENTIALS` (service account file path) or
-`FIREBASE_SERVICE_ACCOUNT_JSON` (JSON secret). The account needs Firestore write
-access to the project/database in `firebase-applet-config.json`. Google-hosted
-servers can use Application Default Credentials instead. `BART_API_KEY` is
-optional; the official public legacy API key is the default.
-
-Deploy the updated `firestore.rules` to the configured named database so clients
-can read `transitFeeds/bart`; client writes are denied. Run `npm run dev` (or
-`npm start` in production) with the Express process kept running for periodic
-refreshes. A static frontend deployment alone does not run the sync.
+The transit banner uses a **mock BART feed** for the demo. The Express server
+returns canned BART-style service advisories and elevator status from
+`/api/transit-alerts` (see `server/bartTransitService.ts`), and the React banner
+polls that endpoint every minute. No BART API key, Firebase Admin credentials, or
+network access is needed. To go live later, replace `getMockBartAlerts` with a
+real fetch that returns the same `TransitAlert[]` shape.

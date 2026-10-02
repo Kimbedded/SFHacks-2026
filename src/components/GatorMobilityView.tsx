@@ -73,7 +73,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
 
         <button
           onClick={onOpenHotline}
-          className="px-4 py-2.5 bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-400/40 shadow-sm transition-transform active:scale-95 shrink-0 flex items-center gap-2"
+          className="px-4 py-2.5 bg-purple-700/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-400/40 shadow-none transition-transform active:scale-95 shrink-0 flex items-center gap-2"
         >
           <FaPhone className="w-3.5 h-3.5 text-amber-300" />
           <span>Call DPRC Hotline</span>
@@ -237,7 +237,7 @@ export function GatorMobilityView({ buildings, onOpenHotline }: GatorMobilityVie
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3 bg-purple-900 hover:bg-purple-800 text-amber-300 font-extrabold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                className="w-full py-3 bg-purple-900 hover:bg-purple-800 text-amber-300 font-extrabold text-sm rounded-xl shadow-none transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
               >
                 <FaCar className="w-4 h-4" />
                 <span>{isSubmitting ? 'Requesting Shuttle...' : 'Request ride'}</span>

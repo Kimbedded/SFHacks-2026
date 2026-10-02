@@ -68,7 +68,7 @@ export const DEMO_STEPS: DemoStepDetail[] = [
     whatItDoes: 'Smart AI looks closely at the picture to find anything blocking people who use wheelchairs, crutches, or strollers.',
     whatUserNeedsToDo: 'Just wait 3 to 4 seconds while the AI reads the photo. No typing or guesswork needed!',
     whatAiIsChecking: 'The AI checks the obstacle type (like stairs or locked doors), measures hill steepness (slope grade), and rates urgency.',
-    whatResultUserReceives: 'A friendly summary card showing the obstacle name (like "Stairs"), urgency level ("High"), and how it affects movement.',
+    whatResultUserReceives: 'A summary card showing the obstacle name (like "Stairs"), urgency level ("High"), and how it affects movement.',
     whatActionUserCanTakeNext: 'Review what the AI found, change any words if you want, or tap "See Safe Detour" to find a ramp.',
   },
   {
@@ -110,7 +110,7 @@ export type ScannerStep =
   | 'ready_to_analyze' // Locked-in photo with "Analyze with Gemini" button
   | 'analyzing' // Loading state: "Gemini is analyzing the accessibility hazard…"
   | 'upload_demo' // Slow clear 4-step AI demo animation for uploaded image
-  | 'upload_result' // 5th-grade friendly result for uploaded image
+  | 'upload_result' // result for uploaded image
   | 'review' // Review & editable fields screen
   | 'confirmation'; // Submitted confirmation with report ID
 
@@ -267,6 +267,7 @@ export function SubmitReportView({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedSample, setSelectedSample] = useState<SampleHazardItem | null>(null);
+  const uploadGeneration = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Upload Slow AI Demo Animation states (4 steps, half speed)
@@ -276,6 +277,7 @@ export function SubmitReportView({
     hazardType: string;
     severity: 'low' | 'medium' | 'high';
     severityText: string;
+    confidence: number;
     location: string;
     description: string;
     alternativeRoute: string;
@@ -284,8 +286,11 @@ export function SubmitReportView({
 
   // Process chosen or dropped file (Supports JPG, PNG, HEIC)
   const processFile = async (file: File) => {
+    const generation = ++uploadGeneration.current;
     setUploadError(null);
     setSelectedSample(null);
+    setUploadResult(null);
+    setAnalysis(null);
     const name = file.name;
     const isHeic = name.toLowerCase().endsWith('.heic') || name.toLowerCase().endsWith('.heif');
 
@@ -301,6 +306,7 @@ export function SubmitReportView({
         const finalBlob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
         const reader = new FileReader();
         reader.onload = (e) => {
+          if (generation !== uploadGeneration.current) return;
           const result = e.target?.result as string;
           setUploadedImage(result);
           setCapturedImage(result);
@@ -315,6 +321,7 @@ export function SubmitReportView({
 
     const reader = new FileReader();
     reader.onload = (e) => {
+          if (generation !== uploadGeneration.current) return;
       const result = e.target?.result as string;
       setUploadedImage(result);
       setCapturedImage(result);
@@ -327,6 +334,9 @@ export function SubmitReportView({
   };
 
   const handlePickSample = (sample: SampleHazardItem) => {
+    uploadGeneration.current++;
+    setUploadResult(null);
+    setAnalysis(null);
     setSelectedSample(sample);
     setUploadedImage(sample.imageUrl);
     setCapturedImage(sample.imageUrl);
@@ -337,6 +347,7 @@ export function SubmitReportView({
   };
 
   const handleChooseDifferentImage = () => {
+    uploadGeneration.current++;
     setUploadedImage(null);
     setCapturedImage(null);
     setUploadedFileName(null);
@@ -346,124 +357,66 @@ export function SubmitReportView({
     setStep('idle');
   };
 
-  // Slow, clear 4-step AI demo animation (Half speed: ~2.6s per message)
   const handleStartUploadAnalysis = async () => {
     if (!uploadedImage) return;
-
+    const generation = ++uploadGeneration.current;
+    setUploadResult(null);
+    setUploadError(null);
     setStep('upload_demo');
     setUploadDemoPhase(1);
-
-    // Call API in background
-    let fetchedAnalysis: any = null;
-    const apiPromise = (async () => {
-      try {
-        const response = await fetch('/api/analyze-hazard', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            textDescription: `Road safety inspection at ${locationName || 'SFSU Campus'}`,
-            locationName: locationName || 'SFSU Campus',
-            imageBase64: uploadedImage,
-          }),
-        });
-        const data = await response.json();
-        if (data.success && data.analysis) {
-          fetchedAnalysis = data.analysis;
-        }
-      } catch (err) {
-        console.warn('API analysis fallback:', err);
+    try {
+      let image = uploadedImage;
+      // Samples must be analyzed as pixels too, never as preset descriptions.
+      if (!/^data:image\/(jpeg|png|webp);base64,/i.test(image)) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = image;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Could not read image.');
+        context.drawImage(img, 0, 0);
+        image = canvas.toDataURL('image/png');
       }
-    })();
-
-    // Step 1: “Looking at the image…” (2.6 seconds)
-    await new Promise((res) => setTimeout(res, 2600));
-    setUploadDemoPhase(2);
-
-    // Step 2: “Finding possible safety problems…” (2.6 seconds)
-    await new Promise((res) => setTimeout(res, 2600));
-    setUploadDemoPhase(3);
-
-    // Step 3: “Checking the location and road conditions…” (2.6 seconds)
-    await new Promise((res) => setTimeout(res, 2600));
-    setUploadDemoPhase(4);
-
-    // Step 4: “Preparing your report…” (2.6 seconds)
-    await new Promise((res) => setTimeout(res, 2600));
-    await apiPromise; // ensure API call had time to finish
-
-    // Format results in 5th-grade simple language
-    if (selectedSample) {
-      setUploadResult({
-        headline: selectedSample.headline,
-        hazardType: selectedSample.hazardType,
-        severity: selectedSample.severity,
-        severityText: selectedSample.severityText,
-        location: selectedSample.location,
-        description: selectedSample.description,
-        alternativeRoute: selectedSample.alternativeRoute,
-        recommendedAction: selectedSample.recommendedAction,
+      const response = await fetch('/api/analyze-hazard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: image }),
       });
-      setEditedHazardType(selectedSample.hazardType);
-      setEditedSeverity(selectedSample.severity);
-      setEditedSummary(selectedSample.description);
-      setEditedImpact(selectedSample.severityText);
-      setEditedAction(selectedSample.recommendedAction);
-      setEditedAlternativeRoute(selectedSample.alternativeRoute);
-      setLocationName(selectedSample.location);
-    } else if (fetchedAnalysis) {
-      const sev = fetchedAnalysis.severity || 'medium';
-      const sevText =
-        sev === 'high'
-          ? '🔴 High - Hard or impossible for wheelchairs and strollers to pass'
-          : sev === 'medium'
-          ? '🟡 Medium - Bumpy or difficult for wheels to get around'
-          : '🟢 Low - Minor bump or easy to step around';
-
-      const simpleHeadline = `Possible problem found: ${
-        fetchedAnalysis.hazardType?.replace(/_/g, ' ') || 'An obstacle is blocking the road or path.'
-      }`;
-
+      const data = await response.json();
+      if (!response.ok || !data.success || !data.analysis) {
+        throw new Error(data.error || 'Image analysis failed. Please retry.');
+      }
+      if (generation !== uploadGeneration.current) return;
+      const result = data.analysis;
+      const noHazard = ['none', 'unclear'].includes(result.hazardType);
       setUploadResult({
-        headline: simpleHeadline,
-        hazardType: fetchedAnalysis.hazardType?.replace(/_/g, ' ') || 'Road / Walkway Problem',
-        severity: sev,
-        severityText: sevText,
-        location: locationName || 'SFSU Campus Pathway (GPS detected)',
-        description: fetchedAnalysis.summary || 'A safety hazard was detected on the pathway.',
-        alternativeRoute:
-          fetchedAnalysis.alternativeRoute ||
-          'Safe detour: Use the nearby ramp and paved quad path with gentle 3.2% slope.',
-        recommendedAction:
-          fetchedAnalysis.recommendedAction || 'Send campus maintenance to inspect and repair.',
+        headline: result.hazardType === 'unclear' ? 'The image is unclear.' :
+          result.hazardType === 'none' ? 'No clearly visible hazard detected.' :
+          result.hazardType.replace(/_/g, ' '),
+        hazardType: result.hazardType.replace(/_/g, ' '),
+        severity: result.severity,
+        severityText: noHazard ? 'Not applicable' : result.severity,
+        confidence: result.confidence,
+        location: locationName || result.detectedLocation || 'Location not confirmed',
+        description: result.summary,
+        alternativeRoute: result.alternativeRoute || 'No detour can be verified from this image.',
+        recommendedAction: result.recommendedAction || '',
       });
-      setEditedHazardType(fetchedAnalysis.hazardType?.replace(/_/g, ' ') || 'Road Problem');
-      setEditedSeverity(sev);
-      setEditedSummary(fetchedAnalysis.summary || '');
-      setEditedImpact(fetchedAnalysis.accessibilityImpact || sevText);
-      setEditedAction(fetchedAnalysis.recommendedAction || '');
-      setEditedAlternativeRoute(fetchedAnalysis.alternativeRoute || '');
-    } else {
-      setUploadResult({
-        headline: 'Possible problem found: A road hazard is blocking the walkway.',
-        hazardType: 'Road / Pathway Problem',
-        severity: 'medium',
-        severityText: '🟡 Medium - Hard for bikes, strollers, and wheelchairs to pass safely',
-        location: locationName || 'SFSU Campus Pathway',
-        description:
-          'A problem was spotted in the road or sidewalk. It makes it hard for people using wheels, carts, or walkers to get through smoothly.',
-        alternativeRoute:
-          'Safe detour: Use the East Switchback Ramp or South Walkway. It has a gentle slope and is completely clear of obstacles.',
-        recommendedAction: 'Report sent to SFSU Facilities to dispatch repair crew.',
-      });
-      setEditedHazardType('Road / Pathway Problem');
-      setEditedSeverity('medium');
-      setEditedSummary('A problem was spotted in the road or sidewalk.');
-      setEditedImpact('🟡 Medium - Hard for wheels to pass');
-      setEditedAction('Report sent to SFSU Facilities.');
-      setEditedAlternativeRoute('Safe detour: Use the East Switchback Ramp.');
+      setEditedHazardType(result.hazardType);
+      setEditedSeverity(result.severity);
+      setEditedSummary(result.summary);
+      setEditedImpact(result.accessibilityImpact || '');
+      setEditedAction(result.recommendedAction || '');
+      setEditedAlternativeRoute(result.alternativeRoute || '');
+      setUploadDemoPhase(4);
+      setStep('upload_result');
+    } catch (error) {
+      if (generation !== uploadGeneration.current) return;
+      setUploadError(error instanceof Error ? error.message : 'Image analysis failed. Please retry.');
+      setStep('idle');
     }
-
-    setStep('upload_result');
   };
 
   // Submission state
@@ -692,28 +645,24 @@ export function SubmitReportView({
       const res: GeminiAnalysisResult = data.analysis;
 
       // Extract and normalize all fields
-      const hazardType = res.hazardType || 'obstructed_path';
+      const hazardType = res.hazardType;
       const severity = res.severity || 'medium';
-      const summary = res.summary || 'Accessibility obstacle detected blocking the path.';
+      const summary = res.summary;
       const accessibilityImpact =
         res.accessibilityImpact ||
-        'A wheelchair user or person with reduced mobility may be unable to pass safely.';
+        '';
       const recommendedAction =
         res.recommendedAction ||
-        'Use an alternative accessible route and submit a facilities work order.';
+        '';
       const reportCategory = res.reportCategory || hazardType || 'obstructed_path';
-      const confidence = typeof res.confidence === 'number' ? res.confidence : 0.88;
+      const confidence = res.confidence;
       const alternativeRoute =
         res.alternativeRoute ||
-        'Follow adjacent low-slope accessible pathway around the obstacle.';
+        'No detour can be verified from this image.';
       const routeSteps =
         Array.isArray(res.routeSteps) && res.routeSteps.length > 0
           ? res.routeSteps
-          : [
-              'Turn toward the nearest low-grade connecting walkway.',
-              'Proceed along the flat paved corridor to bypass the obstacle.',
-              'Rejoin the main campus route through the automatic level entrance.',
-            ];
+          : [];
 
       const populated: GeminiAnalysisResult = {
         hazardType,
@@ -728,7 +677,7 @@ export function SubmitReportView({
         alternativeRoute,
         routeSteps,
         barriersToAvoid: res.barriersToAvoid,
-        maximumSlope: res.maximumSlope || '3.5%',
+        maximumSlope: res.maximumSlope || 'Unknown',
         requiresAssistance: Boolean(res.requiresAssistance),
         assistanceRecommendation: res.assistanceRecommendation,
         detectedLocation: res.detectedLocation,
@@ -972,15 +921,13 @@ export function SubmitReportView({
                 onClick={() => setActiveUploadTab('upload')}
                 className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   activeUploadTab === 'upload'
-                    ? 'bg-purple-950 text-white shadow-md ring-2 ring-amber-400/50'
+                    ? 'bg-purple-950 text-white shadow-none  '
                     : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
                 }`}
               >
                 <FaCloudArrowUp className={`w-4 h-4 ${activeUploadTab === 'upload' ? 'text-amber-300' : 'text-slate-500'}`} />
                 <span>Upload an Image</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-purple-950 uppercase tracking-wider hidden sm:inline">
-                  Test Instantly
-                </span>
+                
               </button>
 
               <button
@@ -988,7 +935,7 @@ export function SubmitReportView({
                 onClick={() => setActiveUploadTab('camera')}
                 className={`flex-1 py-3 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
                   activeUploadTab === 'camera'
-                    ? 'bg-purple-950 text-white shadow-md ring-2 ring-amber-400/50'
+                    ? 'bg-purple-950 text-white shadow-none  '
                     : 'text-slate-600 hover:bg-slate-200/70 hover:text-slate-900'
                 }`}
               >
@@ -1050,7 +997,7 @@ export function SubmitReportView({
                         onClick={() => fileInputRef.current?.click()}
                         className={`p-8 sm:p-12 rounded-3xl border-3 border-dashed transition-all cursor-pointer text-center space-y-4 group ${
                           isDragging
-                            ? 'border-amber-400 bg-amber-50/70 scale-[1.01] shadow-lg ring-4 ring-amber-300/40'
+                            ? 'border-slate-300 bg-amber-50/70 scale-[1.01] shadow-lg  '
                             : 'border-purple-300 hover:border-purple-500 bg-purple-50/40 hover:bg-purple-50/80 shadow-inner'
                         }`}
                       >
@@ -1067,7 +1014,7 @@ export function SubmitReportView({
                                 e.stopPropagation();
                                 fileInputRef.current?.click();
                               }}
-                              className="px-8 py-3.5 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-black text-base rounded-2xl shadow-xl ring-4 ring-amber-400/40 hover:ring-amber-300/70 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-amber-300 mx-auto"
+                              className="px-8 py-3.5 bg-purple-700 hover:bg-purple-800      text-white font-black text-base rounded-2xl shadow-none    transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-slate-300 mx-auto"
                             >
                               <FaCloudArrowUp className="w-5 h-5 text-amber-300" />
                               <span>Upload an Image</span>
@@ -1168,7 +1115,7 @@ export function SubmitReportView({
                         <button
                           type="button"
                           onClick={handleStartUploadAnalysis}
-                          className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-black text-sm sm:text-base rounded-2xl shadow-xl ring-4 ring-amber-400/50 hover:ring-amber-300 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-amber-300"
+                          className="w-full sm:w-auto px-10 py-4 bg-purple-700 hover:bg-purple-800      text-white font-black text-sm sm:text-base rounded-2xl shadow-none    transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-slate-300"
                         >
                           <FaWandMagicSparkles className="w-5 h-5 text-amber-300" />
                           <span>Analyze Image</span>
@@ -1187,7 +1134,7 @@ export function SubmitReportView({
                               key={sample.id}
                               type="button"
                               onClick={() => handlePickSample(sample)}
-                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-100 text-purple-950 font-bold text-xs border border-purple-200 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                              className="px-3 py-1.5 rounded-xl bg-white hover:bg-purple-100 text-purple-950 font-bold text-xs border border-purple-200 flex items-center gap-1.5 cursor-pointer shadow-none"
                             >
                               <span>{sample.icon}</span>
                               <span>{sample.name}</span>
@@ -1233,7 +1180,7 @@ export function SubmitReportView({
                     <button
                       type="button"
                       onClick={handleOpenCamera}
-                      className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-black text-base rounded-2xl shadow-2xl ring-4 ring-amber-400/40 hover:ring-amber-300/70 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-amber-300"
+                      className="w-full sm:w-auto px-10 py-4 bg-purple-700 hover:bg-purple-800      text-white font-black text-base rounded-2xl shadow-none    transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-slate-300"
                       aria-label="Open camera"
                     >
                       <FaCamera className="w-5 h-5 text-amber-300" />
@@ -1250,10 +1197,10 @@ export function SubmitReportView({
           </div>
 
           {/* ================= QUICK AI TRIAL CARD ================= */}
-          <div className="bg-gradient-to-r from-purple-50 via-amber-50/40 to-white rounded-2xl shadow-md border-2 border-amber-300/80 p-4 sm:p-5 space-y-4">
+          <div className="bg-gradient-to-r from-purple-50 via-amber-50/40 to-white rounded-2xl shadow-md border-2 border-slate-300 p-4 sm:p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 flex items-center justify-center shrink-0 shadow-md ring-2 ring-amber-300">
+                <span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 flex items-center justify-center shrink-0 shadow-md  ">
                   <FaWandMagicSparkles className="w-5 h-5" />
                 </span>
                 <div>
@@ -1261,7 +1208,7 @@ export function SubmitReportView({
                     <h4 className="font-black text-base sm:text-lg text-purple-950">
                       Quick AI Trial & Demo Video
                     </h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 border border-slate-300">
                       Slow & Calm Guide
                     </span>
                   </div>
@@ -1283,7 +1230,7 @@ export function SubmitReportView({
                     setIsVideoPlaying(false);
                   }
                 }}
-                className="px-5 py-2.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-xs sm:text-sm rounded-xl shadow-lg ring-4 ring-amber-300/60 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400 shrink-0"
+                className="px-5 py-2.5 bg-purple-700 hover:bg-purple-800      text-white font-black text-xs sm:text-sm rounded-xl shadow-none   hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-300 shrink-0"
               >
                 <FaVideo className="w-4 h-4 text-purple-950" />
                 <span>{showTrialWalkthrough ? 'Close Demo' : 'Try Trial & Watch Video'}</span>
@@ -1306,7 +1253,7 @@ export function SubmitReportView({
                       onClick={() => setTrialMode('video')}
                       className={`px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl text-xs sm:text-sm md:text-base font-black flex items-center gap-2 transition-all cursor-pointer ${
                         trialMode === 'video'
-                          ? 'bg-purple-950 text-white shadow-md ring-2 ring-purple-900/50'
+                          ? 'bg-purple-950 text-white shadow-none  ring-purple-900/50'
                           : 'bg-white text-slate-700 hover:bg-purple-100 border border-slate-200'
                       }`}
                     >
@@ -1318,7 +1265,7 @@ export function SubmitReportView({
                       onClick={() => setTrialMode('text')}
                       className={`px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl text-xs sm:text-sm md:text-base font-black flex items-center gap-2 transition-all cursor-pointer ${
                         trialMode === 'text'
-                          ? 'bg-purple-950 text-white shadow-md ring-2 ring-purple-900/50'
+                          ? 'bg-purple-950 text-white shadow-none  ring-purple-900/50'
                           : 'bg-white text-slate-700 hover:bg-purple-100 border border-slate-200'
                       }`}
                     >
@@ -1335,7 +1282,7 @@ export function SubmitReportView({
                       <button
                         type="button"
                         onClick={() => setIsVideoPlaying(!isVideoPlaying)}
-                        className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-white rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 cursor-pointer shadow-md transition-colors"
+                        className="px-4 py-2 bg-purple-900 hover:bg-purple-800 text-white rounded-xl text-xs sm:text-sm font-black flex items-center gap-2 cursor-pointer shadow-none transition-colors"
                         title={isVideoPlaying ? 'Pause to read at your own speed' : 'Resume demo walkthrough'}
                       >
                         {isVideoPlaying ? (
@@ -1368,8 +1315,8 @@ export function SubmitReportView({
                             onClick={() => handleSelectScene(s.stepNumber)}
                             className={`p-3.5 sm:p-4 rounded-2xl text-left transition-all cursor-pointer border-2 ${
                               isActive
-                                ? 'bg-purple-950 text-white border-amber-400 shadow-lg ring-4 ring-amber-300/40 scale-[1.02]'
-                                : 'bg-white text-slate-700 border-purple-100 hover:border-purple-300 hover:bg-purple-50/70 shadow-2xs'
+                                ? 'bg-purple-950 text-white border-slate-300 shadow-none   scale-[1.02]'
+                                : 'bg-white text-slate-700 border-purple-100 hover:border-purple-300 hover:bg-purple-50/70 shadow-none'
                             }`}
                           >
                             <div className="font-black text-sm sm:text-base flex items-center justify-between">
@@ -1412,7 +1359,7 @@ export function SubmitReportView({
                       {/* Scene 1: Camera Framing */}
                       {videoScene === 1 && (
                         <div className="flex-1 flex flex-col items-center justify-center space-y-4 py-3 sm:py-4 animate-fadeIn text-center relative my-auto">
-                          <div className="relative w-full max-w-sm sm:max-w-md md:max-w-lg h-56 sm:h-64 md:h-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 rounded-2xl overflow-hidden border-3 border-amber-400/80 shadow-2xl flex flex-col justify-between p-3">
+                          <div className="relative w-full max-w-sm sm:max-w-md md:max-w-lg h-56 sm:h-64 md:h-72 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 rounded-2xl overflow-hidden border-3 border-slate-300 shadow-2xl flex flex-col justify-between p-3">
                             {/* Visual Stairs Graphic */}
                             <svg className="absolute inset-0 w-full h-full opacity-90" viewBox="0 0 320 180" fill="none">
                               <rect y="130" width="320" height="50" fill="#334155" />
@@ -1424,12 +1371,12 @@ export function SubmitReportView({
                             </svg>
 
                             {/* Viewfinder Target Reticle */}
-                            <div className="relative z-10 w-full h-full border-2 border-dashed border-amber-400/80 rounded-xl flex items-center justify-center">
-                              <div className="w-5 h-5 border-t-3 border-l-3 border-amber-300 absolute top-2 left-2"></div>
-                              <div className="w-5 h-5 border-t-3 border-r-3 border-amber-300 absolute top-2 right-2"></div>
-                              <div className="w-5 h-5 border-b-3 border-l-3 border-amber-300 absolute bottom-2 left-2"></div>
-                              <div className="w-5 h-5 border-b-3 border-r-3 border-amber-300 absolute bottom-2 right-2"></div>
-                              <span className="px-4 py-1.5 rounded-xl bg-black/85 text-amber-300 font-mono text-xs sm:text-sm font-black border-2 border-amber-400/60 backdrop-blur-xs shadow-lg flex items-center gap-1.5">
+                            <div className="relative z-10 w-full h-full border-2 border-dashed border-slate-300 rounded-xl flex items-center justify-center">
+                              <div className="w-5 h-5 border-t-3 border-l-3 border-slate-300 absolute top-2 left-2"></div>
+                              <div className="w-5 h-5 border-t-3 border-r-3 border-slate-300 absolute top-2 right-2"></div>
+                              <div className="w-5 h-5 border-b-3 border-l-3 border-slate-300 absolute bottom-2 left-2"></div>
+                              <div className="w-5 h-5 border-b-3 border-r-3 border-slate-300 absolute bottom-2 right-2"></div>
+                              <span className="px-4 py-1.5 rounded-xl bg-black/85 text-amber-300 font-mono text-xs sm:text-sm font-black border-2 border-slate-300 backdrop-blur-xs shadow-lg flex items-center gap-1.5">
                                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
                                 ⌖ POINTING CAMERA AT OBSTACLE
                               </span>
@@ -1511,7 +1458,7 @@ export function SubmitReportView({
                               <strong className="text-emerald-300 text-sm sm:text-base md:text-lg">East Switchback Ramp (Safe)</strong>
                             </div>
 
-                            <div className="text-xs sm:text-sm md:text-base text-amber-200 bg-amber-950/60 p-3.5 sm:p-4 rounded-xl border-2 border-amber-500/40 flex items-center gap-2.5 font-medium leading-relaxed">
+                            <div className="text-xs sm:text-sm md:text-base text-amber-200 bg-amber-950/60 p-3.5 sm:p-4 rounded-xl border-2 border-slate-300 flex items-center gap-2.5 font-medium leading-relaxed">
                               <FaTriangleExclamation className="w-5 h-5 text-amber-400 shrink-0" />
                               <span>Safe hill slope under 8.3% • Wheelchair, bike, and crutch friendly</span>
                             </div>
@@ -1593,7 +1540,7 @@ export function SubmitReportView({
                         <button
                           type="button"
                           onClick={handlePrevScene}
-                          className="px-5 py-3 sm:px-6 sm:py-3.5 bg-white hover:bg-purple-100 text-purple-950 border-2 border-purple-300 font-black text-xs sm:text-sm md:text-base rounded-2xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                          className="px-5 py-3 sm:px-6 sm:py-3.5 bg-white hover:bg-purple-100 text-purple-950 border-2 border-purple-300 font-black text-xs sm:text-sm md:text-base rounded-2xl shadow-none transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
                         >
                           <FaChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-950" />
                           <span>Previous Step</span>
@@ -1602,7 +1549,7 @@ export function SubmitReportView({
                         <button
                           type="button"
                           onClick={() => setIsVideoPlaying(!isVideoPlaying)}
-                          className="px-5 py-3 sm:px-6 sm:py-3.5 bg-purple-950 hover:bg-purple-900 text-white font-black text-xs sm:text-sm md:text-base rounded-2xl shadow-md transition-all active:scale-95 flex items-center gap-2 cursor-pointer border border-purple-800"
+                          className="px-5 py-3 sm:px-6 sm:py-3.5 bg-purple-950 hover:bg-purple-900 text-white font-black text-xs sm:text-sm md:text-base rounded-2xl shadow-none transition-all active:scale-95 flex items-center gap-2 cursor-pointer border border-purple-800"
                         >
                           {isVideoPlaying ? (
                             <>
@@ -1622,7 +1569,7 @@ export function SubmitReportView({
                       <button
                         type="button"
                         onClick={handleNextScene}
-                        className="px-8 py-3.5 sm:px-10 sm:py-4 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-sm sm:text-base md:text-lg rounded-2xl shadow-xl ring-4 ring-amber-300/80 transition-all hover:scale-105 active:scale-95 flex items-center gap-3 cursor-pointer border-2 border-amber-500"
+                        className="px-8 py-3.5 sm:px-10 sm:py-4 bg-purple-700 hover:bg-purple-800      text-white font-black text-sm sm:text-base md:text-lg rounded-2xl shadow-none   transition-all hover:scale-105 active:scale-95 flex items-center gap-3 cursor-pointer border-2 border-slate-300"
                       >
                         <span>Next Step</span>
                         <FaChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-purple-950" />
@@ -1646,12 +1593,12 @@ export function SubmitReportView({
                           </div>
                         </div>
 
-                        <span className="self-start sm:self-center px-4 py-1.5 rounded-full text-xs sm:text-sm font-black bg-amber-100 text-purple-950 border-2 border-amber-300">
+                        <span className="self-start sm:self-center px-4 py-1.5 rounded-full text-xs sm:text-sm font-black bg-amber-100 text-purple-950 border-2 border-slate-300">
                           {DEMO_STEPS[videoScene - 1].badge}
                         </span>
                       </div>
 
-                      {/* The 5 ordered explanations in everyday 5th-grade language - Enlarged & Generously Spaced */}
+                      {/* The 5 ordered explanations in plain language - Enlarged & Generously Spaced */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                         {/* 1. What the feature does */}
                         <div className="p-4 sm:p-5 rounded-2xl bg-purple-50 border-2 border-purple-200 space-y-2">
@@ -1676,7 +1623,7 @@ export function SubmitReportView({
                         </div>
 
                         {/* 3. What the AI is checking */}
-                        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-200 space-y-2">
+                        <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-slate-300 space-y-2">
                           <div className="font-black text-amber-950 flex items-center gap-2 text-xs sm:text-sm uppercase tracking-wider">
                             <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-amber-200 text-amber-900 flex items-center justify-center text-xs sm:text-sm font-black">3</span>
                             <span>What the AI is checking</span>
@@ -1755,7 +1702,7 @@ export function SubmitReportView({
                               <p className="text-slate-800 text-sm mt-1 font-medium">{s.whatUserNeedsToDo}</p>
                             </div>
 
-                            <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-100">
+                            <div className="p-3 rounded-xl bg-amber-50/80 border border-slate-300">
                               <strong className="block text-amber-950 text-xs font-black uppercase">
                                 3. What the AI is checking:
                               </strong>
@@ -1782,7 +1729,7 @@ export function SubmitReportView({
                   </div>
                 )}
 
-                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-950 flex items-start gap-2">
+                <div className="p-3 bg-amber-50 rounded-xl border border-slate-300 text-xs text-amber-950 flex items-start gap-2">
                   <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <p>
                     <strong>Trial Note:</strong> This demonstration visualizes the live AI process calmly without making real changes, invoking fake data, or calling Gemini API.
@@ -1790,7 +1737,7 @@ export function SubmitReportView({
                 </div>
 
                 {/* Prominently Highlighted Action Button */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-900 border-2 border-amber-400 shadow-xl text-white">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-900 border-2 border-slate-300 shadow-xl text-white">
                   <div className="space-y-0.5 text-center sm:text-left">
                     <span className="text-xs font-black text-amber-300 uppercase tracking-wider block">
                       ⚡ Ready to try it with your real camera?
@@ -1802,7 +1749,7 @@ export function SubmitReportView({
                   <button
                     type="button"
                     onClick={handleOpenCamera}
-                    className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-sm sm:text-base rounded-2xl shadow-2xl ring-4 ring-amber-300/90 hover:ring-amber-200 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-white shrink-0 group relative overflow-hidden"
+                    className="w-full sm:w-auto px-8 py-4 bg-purple-700 hover:bg-purple-800      text-white font-black text-sm sm:text-base rounded-2xl shadow-none    transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-white shrink-0 group relative overflow-hidden"
                   >
                     <span className="w-2.5 h-2.5 rounded-full bg-purple-950 animate-ping"></span>
                     <FaCamera className="w-5 h-5 text-purple-950" />
@@ -1841,7 +1788,7 @@ export function SubmitReportView({
               <img
                 src={uploadedImage}
                 alt="Uploaded road hazard being inspected"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
               {/* Animated Scanning Beam */}
               <div className="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/35 to-transparent w-full h-full animate-pulse pointer-events-none"></div>
@@ -1853,7 +1800,7 @@ export function SubmitReportView({
 
           {/* Large Current Step Message Required by User */}
           <div className="space-y-3 max-w-xl mx-auto py-2">
-            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 text-3xl sm:text-4xl shadow-xl ring-4 ring-amber-300/60 mb-2">
+            <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 text-3xl sm:text-4xl shadow-xl   mb-2">
               {uploadDemoPhase === 1 && '👀'}
               {uploadDemoPhase === 2 && '🔍'}
               {uploadDemoPhase === 3 && '📍'}
@@ -1863,15 +1810,15 @@ export function SubmitReportView({
             <h3 className="text-2xl sm:text-3xl md:text-4xl font-black text-purple-950 tracking-tight leading-tight">
               {uploadDemoPhase === 1 && 'Looking at the image…'}
               {uploadDemoPhase === 2 && 'Finding possible safety problems…'}
-              {uploadDemoPhase === 3 && 'Checking the location and road conditions…'}
+              {uploadDemoPhase === 3 && 'Checking visible details…'}
               {uploadDemoPhase === 4 && 'Preparing your report…'}
             </h3>
 
             <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-medium">
               {uploadDemoPhase === 1 && 'The AI is checking the photo to make sure it can see the road, sidewalk, and walkway clearly.'}
               {uploadDemoPhase === 2 && 'Searching for potholes, fallen trees, broken curbs, or anything blocking wheelchairs and bikes.'}
-              {uploadDemoPhase === 3 && 'Measuring ground steepness, nearby campus landmarks, and finding a safe detour route.'}
-              {uploadDemoPhase === 4 && 'Writing a clear summary and getting your report ready in simple words.'}
+              {uploadDemoPhase === 3 && 'Checking visible details without assuming conditions outside the image.'}
+              {uploadDemoPhase === 4 && 'Preparing the image analysis result.'}
             </p>
           </div>
 
@@ -1879,8 +1826,8 @@ export function SubmitReportView({
           <div className="max-w-2xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 text-left">
             {[
               { num: 1, title: 'Looking at the image…', desc: 'Checks photo clarity' },
-              { num: 2, title: 'Finding possible safety problems…', desc: 'Spots potholes & barriers' },
-              { num: 3, title: 'Checking the location and road conditions…', desc: 'Calculates safe slope' },
+              { num: 2, title: 'Finding possible safety problems…', desc: 'Checks for visible hazards' },
+              { num: 3, title: 'Checking visible details…', desc: 'Checks visible evidence' },
               { num: 4, title: 'Preparing your report…', desc: 'Builds easy-to-read ticket' },
             ].map((p) => {
               const isDone = uploadDemoPhase > p.num;
@@ -1890,7 +1837,7 @@ export function SubmitReportView({
                   key={p.num}
                   className={`p-4 sm:p-5 rounded-2xl border-2 transition-all ${
                     isCurrent
-                      ? 'bg-purple-950 text-white border-amber-400 shadow-xl ring-4 ring-amber-300/40 scale-[1.02]'
+                      ? 'bg-purple-950 text-white border-slate-300 shadow-xl   scale-[1.02]'
                       : isDone
                       ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
                       : 'bg-slate-50 text-slate-400 border-slate-200'
@@ -1937,11 +1884,11 @@ export function SubmitReportView({
         </div>
       )}
 
-      {/* ================= STEP: 5TH-GRADE SIMPLE RESULTS VIEW (UPLOAD) ================= */}
+      {/* ================= STEP: IMAGE ANALYSIS RESULTS (UPLOAD) ================= */}
       {step === 'upload_result' && uploadResult && (
         <div className="bg-white rounded-3xl shadow-xl border-2 border-purple-200 p-6 sm:p-8 space-y-6 animate-fadeIn">
-          {/* Headline Alert Box in Simple 5th-Grade Language */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          {/* Image analysis summary */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border-2 border-slate-300 text-amber-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
             <div className="flex items-start sm:items-center gap-3">
               <span className="w-12 h-12 rounded-2xl bg-amber-400 text-purple-950 flex items-center justify-center font-black text-2xl shrink-0 shadow-sm">
                 ⚠️
@@ -1953,15 +1900,11 @@ export function SubmitReportView({
                 <h3 className="font-black text-base sm:text-lg text-purple-950 mt-0.5">
                   {uploadResult.headline}
                 </h3>
-                <p className="text-xs text-amber-900">
-                  Explained in everyday words so everyone can easily understand and take action.
-                </p>
+                
               </div>
             </div>
 
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-white text-purple-950 border border-amber-300 shadow-2xs self-start sm:self-center shrink-0">
-              5th-Grade Friendly Guide
-            </span>
+            
           </div>
 
           {/* Photo & Details Grid */}
@@ -1973,7 +1916,7 @@ export function SubmitReportView({
                   <img
                     src={uploadedImage}
                     alt="Analyzed hazard photo"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                   <div className="absolute bottom-2 left-2 bg-black/75 backdrop-blur-xs text-white text-[10px] font-mono px-2 py-1 rounded-md">
                     {uploadedFileName || 'Photo Preview'}
@@ -1991,7 +1934,7 @@ export function SubmitReportView({
                   <span>{uploadResult.location}</span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Helpers will be guided straight to this spot on campus.
+                  Confirm the location before submitting your report.
                 </p>
               </div>
             </div>
@@ -2009,12 +1952,13 @@ export function SubmitReportView({
                   </div>
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-amber-50/80 border border-amber-200 space-y-1">
+                <div className="p-3.5 rounded-xl bg-amber-50/80 border border-slate-300 space-y-1">
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 block">
                     How serious it may be
                   </span>
                   <div className="font-bold text-xs text-amber-950">
                     {uploadResult.severityText}
+                    <span className="block mt-1">Confidence: {Math.round(uploadResult.confidence * 100)}%</span>
                   </div>
                 </div>
               </div>
@@ -2036,15 +1980,13 @@ export function SubmitReportView({
                     <FaRoute className="w-3.5 h-3.5 text-emerald-700" />
                     <span>Safer Alternative Route (Detour)</span>
                   </span>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/80 px-2 py-0.5 rounded-full">
-                    Slope under 4% (Gentle)
-                  </span>
+                  
                 </div>
                 <p className="text-xs text-emerald-950 leading-relaxed font-semibold">
                   {uploadResult.alternativeRoute}
                 </p>
                 <div className="text-[11px] text-emerald-800 flex items-center gap-1 pt-0.5">
-                  <span>✓ Flat, gentle, and completely clear of holes or obstacles.</span>
+                  
                 </div>
               </div>
             </div>
@@ -2065,7 +2007,7 @@ export function SubmitReportView({
               type="button"
               disabled={isSubmitting}
               onClick={handleSubmitReport}
-              className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-black text-sm sm:text-base rounded-2xl shadow-xl ring-4 ring-amber-400/40 hover:ring-amber-300 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 border border-amber-300"
+              className="w-full sm:w-auto px-8 py-3.5 bg-purple-700 hover:bg-purple-800      text-white font-black text-sm sm:text-base rounded-2xl shadow-none    transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 border border-slate-300"
             >
               {isSubmitting ? (
                 <>
@@ -2110,7 +2052,7 @@ export function SubmitReportView({
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover"
+              className="w-full h-full object-contain"
             />
 
             {/* Target Reticle */}
@@ -2175,7 +2117,7 @@ export function SubmitReportView({
             <button
               type="button"
               onClick={handleTakePicture}
-              className="px-8 py-3.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-sm rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 border-2 border-white cursor-pointer"
+              className="px-8 py-3.5 bg-purple-700 hover:bg-purple-800     text-white font-black text-sm rounded-full shadow-none transition-transform hover:scale-105 active:scale-95 flex items-center gap-2 border-2 border-white cursor-pointer"
               aria-label="Take picture"
             >
               <FaCamera className="w-5 h-5 text-purple-950" />
@@ -2219,7 +2161,7 @@ export function SubmitReportView({
             <button
               type="button"
               onClick={handleUseThisPicture}
-              className="w-full sm:w-auto px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:w-auto px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-none transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
               <FaCheck className="w-4 h-4" />
               <span>Use This Picture</span>
@@ -2278,7 +2220,7 @@ export function SubmitReportView({
                     }}
                     onFocus={() => setShowLocationSuggestions(true)}
                     placeholder="Type or confirm campus building..."
-                    className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                    className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 bg-white focus: focus:ring-purple-600 focus:outline-none"
                   />
                   {showLocationSuggestions && filteredBuildings.length > 0 && (
                     <div className="absolute top-full left-0 right-0 z-30 bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto text-xs">
@@ -2322,7 +2264,7 @@ export function SubmitReportView({
                     <button
                       type="button"
                       onClick={handleAnalyzeWithGemini}
-                      className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-sm"
+                      className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-lg text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-none"
                     >
                       <FaRotateLeft className="w-3 h-3" />
                       <span>Retry Analysis with Gemini</span>
@@ -2335,7 +2277,7 @@ export function SubmitReportView({
               <button
                 type="button"
                 onClick={handleAnalyzeWithGemini}
-                className="w-full py-3.5 px-6 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-extrabold text-sm rounded-xl shadow-xl transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
+                className="w-full py-3.5 px-6 bg-purple-700 hover:bg-purple-800      text-white font-extrabold text-sm rounded-xl shadow-none transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer border border-purple-400/30"
               >
                 <FaWandMagicSparkles className="w-4 h-4 text-amber-300" />
                 <span>Analyze with Gemini</span>
@@ -2388,7 +2330,7 @@ export function SubmitReportView({
                     editedSeverity === 'high'
                       ? 'bg-rose-100 text-rose-800 border border-rose-300'
                       : editedSeverity === 'medium'
-                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                      ? 'bg-amber-100 text-amber-800 border border-slate-300'
                       : 'bg-blue-100 text-blue-800 border border-blue-300'
                   }`}
                 >
@@ -2407,7 +2349,7 @@ export function SubmitReportView({
                   <img
                     src={capturedImage}
                     alt="Captured campus accessibility barrier analyzed by Gemini"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 </div>
                 <div className="space-y-1 text-xs text-slate-600 flex-1">
@@ -2474,7 +2416,7 @@ export function SubmitReportView({
                     setLocationQuery(suggestedSign);
                     setSuggestedSign(null);
                   }}
-                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer shadow-sm"
+                  className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer shadow-none"
                 >
                   Confirm Sign Location
                 </button>
@@ -2502,7 +2444,7 @@ export function SubmitReportView({
                   </h4>
                 </div>
                 <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-                  Max Slope: {analysis.maximumSlope || '3.5%'}
+                  Max Slope: {analysis.maximumSlope || 'Unknown'}
                 </span>
               </div>
 
@@ -2536,13 +2478,7 @@ export function SubmitReportView({
                           <span className="font-semibold">{stepText}</span>
                         </div>
 
-                        {/* Slope Warning for this Step */}
-                        <div className="flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 self-start">
-                          <FaTriangleExclamation className="w-3 h-3 text-amber-600 shrink-0" />
-                          <span>
-                            Slope warning: {idx === 0 ? '2.1% gentle grade' : idx === 1 ? '3.5% low-grade ramp' : '1.8% flat paved pathway'} (verified under 8.33% ADA maximum)
-                          </span>
-                        </div>
+
                       </div>
                     ))}
                   </div>
@@ -2571,7 +2507,7 @@ export function SubmitReportView({
                     setEditedHazardType(e.target.value);
                     setEditedCategory(e.target.value);
                   }}
-                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus: focus:ring-purple-600 focus:outline-none"
                 />
               </div>
 
@@ -2608,7 +2544,7 @@ export function SubmitReportView({
                     setLocationName(e.target.value);
                     setLocationQuery(e.target.value);
                   }}
-                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus: focus:ring-purple-600 focus:outline-none"
                 />
               </div>
 
@@ -2618,7 +2554,7 @@ export function SubmitReportView({
                   rows={2}
                   value={editedSummary}
                   onChange={(e) => setEditedSummary(e.target.value)}
-                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus: focus:ring-purple-600 focus:outline-none"
                 />
               </div>
 
@@ -2628,7 +2564,7 @@ export function SubmitReportView({
                   type="text"
                   value={editedImpact}
                   onChange={(e) => setEditedImpact(e.target.value)}
-                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus: focus:ring-purple-600 focus:outline-none"
                 />
               </div>
 
@@ -2638,7 +2574,7 @@ export function SubmitReportView({
                   type="text"
                   value={editedAction}
                   onChange={(e) => setEditedAction(e.target.value)}
-                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus: focus:ring-purple-600 focus:outline-none"
                 />
               </div>
 
@@ -2648,7 +2584,7 @@ export function SubmitReportView({
                   type="text"
                   value={editedAlternativeRoute}
                   onChange={(e) => setEditedAlternativeRoute(e.target.value)}
-                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus: focus:ring-purple-600 focus:outline-none"
                 />
               </div>
             </div>
@@ -2669,7 +2605,7 @@ export function SubmitReportView({
               type="button"
               disabled={isSubmitting}
               onClick={handleSubmitReport}
-              className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-extrabold text-sm rounded-xl shadow-xl transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              className="w-full sm:w-auto px-8 py-3.5 bg-purple-700 hover:bg-purple-800      text-white font-extrabold text-sm rounded-xl shadow-none transition-transform hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
@@ -2714,7 +2650,7 @@ export function SubmitReportView({
 
             <div className="flex items-center justify-between border-b border-purple-200/80 pb-2">
               <span className="text-slate-500 font-semibold">Report Status:</span>
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-slate-300">
                 Pending review
               </span>
             </div>
@@ -2747,7 +2683,7 @@ export function SubmitReportView({
             <button
               type="button"
               onClick={handleReportAnother}
-              className="w-full sm:w-auto px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+              className="w-full sm:w-auto px-5 py-2.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow-none transition-transform hover:scale-105 active:scale-95 cursor-pointer"
             >
               Report Another Issue
             </button>
@@ -2756,7 +2692,7 @@ export function SubmitReportView({
               <button
                 type="button"
                 onClick={onNavigateToMap}
-                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl shadow-none transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <FaRoute className="w-3.5 h-3.5" />
                 <span>View Route in Campus Navigator</span>

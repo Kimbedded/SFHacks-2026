@@ -334,9 +334,9 @@ export function CampusMap({
                 setSelectedReport(null);
                 setSelectedParking(null);
               }}
-              className={`group relative cursor-pointer px-2.5 py-1 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`group relative cursor-pointer px-2.5 py-1 rounded-xl shadow-none border text-xs font-bold flex items-center gap-1.5 transition-all ${
                 isSelected
-                  ? 'bg-amber-400 text-purple-950 border-white scale-125 z-30 shadow-amber-400/50'
+                  ? 'bg-amber-400 text-purple-950 border-white scale-125 z-30 '
                   : hasBrokenElevator
                   ? 'bg-rose-600 text-white border-rose-400 hover:scale-110 shadow-rose-900/50'
                   : 'bg-purple-900/90 hover:bg-purple-800 text-white border-purple-400/30 hover:scale-110'
@@ -411,7 +411,7 @@ export function CampusMap({
                   setSelectedBuilding(null);
                   setSelectedReport(null);
                 }}
-                className={`cursor-pointer px-2 py-1 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-1 transition-all ${
+                className={`cursor-pointer px-2 py-1 rounded-xl shadow-none border text-xs font-bold flex items-center gap-1 transition-all ${
                   isSelected
                     ? 'bg-amber-400 text-purple-950 border-white scale-125 z-30'
                     : 'bg-blue-700 hover:bg-blue-600 text-white border-blue-300 hover:scale-110'
@@ -444,7 +444,7 @@ export function CampusMap({
                   setSelectedParking(null);
                 }}
                 style={{ left: pos.left, top: pos.top }}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center shadow-lg transition-transform cursor-pointer border-2 ${
+                className={`absolute -translate-x-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full flex items-center justify-center shadow-none transition-transform cursor-pointer border-2 ${
                   isSelected
                     ? 'bg-rose-500 text-white border-white scale-125'
                     : 'bg-amber-400 text-purple-950 border-purple-950 hover:scale-125'
@@ -717,7 +717,7 @@ export function CampusMap({
                     <div
                       className={`cursor-pointer px-2.5 py-1 rounded-xl shadow-lg border text-xs font-bold flex items-center gap-1.5 transition-all hover:scale-110 ${
                         isRelevant && hasActiveWaypoints
-                          ? 'bg-purple-950 text-amber-300 border-amber-400 ring-2 ring-amber-400/50 scale-105'
+                          ? 'bg-purple-950 text-amber-300 border-slate-300 scale-105'
                           : hasBrokenElevator
                           ? 'bg-rose-600 text-white border-rose-400'
                           : 'bg-purple-900 text-white border-purple-400'
@@ -841,11 +841,11 @@ export function CampusMap({
                       <div
                         className={`flex items-center justify-center font-black text-xs rounded-full shadow-2xl border-2 transition-all ${
                           isSelected
-                            ? 'w-9 h-9 bg-purple-900 text-amber-300 border-amber-300 ring-4 ring-amber-400/60 shadow-purple-950/70'
+                            ? 'w-9 h-9 bg-purple-900 text-amber-300 border-slate-300 shadow-purple-950/70'
                             : isFirst
                             ? 'w-7 h-7 bg-emerald-600 text-white border-white shadow-emerald-900/40'
                             : isLast
-                            ? 'w-7 h-7 bg-amber-500 text-purple-950 border-white shadow-amber-900/40'
+                            ? 'w-7 h-7 bg-amber-500 text-purple-950 border-white '
                             : 'w-7 h-7 bg-blue-700 text-white border-white shadow-blue-900/40'
                         }`}
                       >
