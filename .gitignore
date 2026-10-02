@@ -11,3 +11,4 @@ coverage/
 node-compile-cache/
 .*.hm
 bun.lock
+dev-dist/
