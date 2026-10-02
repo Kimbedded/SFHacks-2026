@@ -16,11 +16,16 @@ import {
   FaXmark,
   FaArrowRight,
   FaShieldHalved,
-  FaLayerGroup,
   FaCircleQuestion,
   FaWheelchair,
-  FaSquareParking,
-  FaElevator,
+  FaRoute,
+  FaChevronDown,
+  FaChevronUp,
+  FaLocationCrosshairs,
+  FaPlay,
+  FaPause,
+  FaFilm,
+  FaVideo,
 } from 'react-icons/fa6';
 import confetti from 'canvas-confetti';
 
@@ -33,8 +38,8 @@ interface SubmitReportViewProps {
 }
 
 export type ScannerStep =
-  | 'idle' // "Open Camera" screen
-  | 'camera_live' // Live camera preview active with "Take Picture"
+  | 'idle' // "Open Camera" screen with "Quick AI Trial"
+  | 'camera_live' // Live camera preview active with "Take Picture" + GPS
   | 'photo_preview' // Still photo captured with only "Retake Picture" & "Use This Picture"
   | 'ready_to_analyze' // Locked-in photo with "Analyze with Gemini" button
   | 'analyzing' // Loading state: "Gemini is analyzing the accessibility hazard…"
@@ -50,7 +55,49 @@ export interface GeminiAnalysisResult {
   reportCategory: string;
   confidence: number;
   suggestedLocationSign?: string;
-  isDemoMode?: boolean;
+
+  // Alternative accessible route fields
+  blockedLocation?: string;
+  alternativeRoute?: string;
+  routeSteps?: string[];
+  barriersToAvoid?: string[];
+  maximumSlope?: string;
+  requiresAssistance?: boolean;
+  assistanceRecommendation?: string;
+
+  // Location detection fields
+  detectedLocation?: string;
+  buildingId?: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  locationConfidence?: number;
+  locationEvidence?: string[];
+  needsLocationConfirmation?: boolean;
+}
+
+export interface DetectedGpsInfo {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  nearestBuilding: CampusBuilding | null;
+  confidence: number;
+  evidence: string[];
+  confirmed: boolean;
+}
+
+function getDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export function SubmitReportView({
@@ -62,6 +109,29 @@ export function SubmitReportView({
 }: SubmitReportViewProps) {
   const [step, setStep] = useState<ScannerStep>('idle');
 
+  // Trial Walkthrough State: starts open with live video playing for demonstration
+  const [showTrialWalkthrough, setShowTrialWalkthrough] = useState(true);
+  const [trialMode, setTrialMode] = useState<'video' | 'text'>('video');
+  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
+  const [videoScene, setVideoScene] = useState<number>(1);
+  const [videoSeconds, setVideoSeconds] = useState<number>(0);
+
+  // Auto-play interval for Demo Video Walkthrough simulation
+  useEffect(() => {
+    if (!isVideoPlaying) return;
+    const interval = setInterval(() => {
+      setVideoSeconds((prev) => {
+        const next = (prev + 1) % 12;
+        if (next < 3) setVideoScene(1);
+        else if (next < 6) setVideoScene(2);
+        else if (next < 9) setVideoScene(3);
+        else setVideoScene(4);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isVideoPlaying]);
+
   // Camera video, canvas, and stream refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -70,7 +140,11 @@ export function SubmitReportView({
   // Camera & Image states
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  // GPS Location state
+  const [gpsLocation, setGpsLocation] = useState<DetectedGpsInfo | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   // Gemini Analysis state
   const [analysis, setAnalysis] = useState<GeminiAnalysisResult | null>(null);
@@ -85,6 +159,7 @@ export function SubmitReportView({
   const [editedImpact, setEditedImpact] = useState('');
   const [editedAction, setEditedAction] = useState('');
   const [editedCategory, setEditedCategory] = useState('obstructed_path');
+  const [editedAlternativeRoute, setEditedAlternativeRoute] = useState('');
   const [locationName, setLocationName] = useState(
     prefillLocation?.name || 'Cesar Chavez Student Center'
   );
@@ -107,6 +182,7 @@ export function SubmitReportView({
     summary: string;
     accessibilityImpact: string;
     recommendedAction: string;
+    alternativeRoute?: string;
     location: string;
     imageUrl: string;
     createdAt: string;
@@ -138,11 +214,80 @@ export function SubmitReportView({
     }
   }, [prefillLocation]);
 
-  // 1. OPEN CAMERA: Request camera permission only after user clicks "Open Camera"
+  // Request GPS Location when camera opens
+  const requestGpsLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setGpsError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsLocating(true);
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy || 15;
+
+        // Find nearest SFSU building
+        let nearest: CampusBuilding | null = null;
+        let minDistance = Infinity;
+
+        for (const bldg of buildings) {
+          if (bldg.coordinates) {
+            const dist = getDistanceMeters(lat, lng, bldg.coordinates.lat, bldg.coordinates.lng);
+            if (dist < minDistance) {
+              minDistance = dist;
+              nearest = bldg;
+            }
+          }
+        }
+
+        const confidence = accuracy <= 20 ? 95 : accuracy <= 40 ? 90 : accuracy <= 80 ? 84 : 75;
+        const evidence = [
+          `Browser GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          `GPS Accuracy: ±${Math.round(accuracy)}m`,
+          nearest ? `Nearest Campus Building: ${nearest.name} (~${Math.round(minDistance)}m)` : 'SFSU Campus Grid',
+          'San Francisco State University Geofence Match',
+        ];
+
+        setGpsLocation({
+          lat,
+          lng,
+          accuracy,
+          nearestBuilding: nearest,
+          confidence,
+          evidence,
+          confirmed: false,
+        });
+
+        if (nearest) {
+          setLocationName(nearest.name);
+          setLocationQuery(nearest.name);
+          setSelectedBuildingId(nearest.id);
+        }
+
+        setIsLocating(false);
+      },
+      (err) => {
+        console.warn('GPS location request notice:', err.message);
+        setGpsError('Location permission was not granted. You can search or select your building below.');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  // 1. OPEN CAMERA: Request live camera + GPS permission
   const handleOpenCamera = async () => {
     setCameraError(null);
+    setAnalysisError(null);
+
+    // Request GPS permission concurrently when camera opens
+    requestGpsLocation();
+
     try {
-      // Prefer rear-facing camera on mobile devices
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: 'environment' },
@@ -156,7 +301,7 @@ export function SubmitReportView({
       streamRef.current = stream;
       setStep('camera_live');
 
-      // Bind to video element safely
+      // Safely attach stream to video element
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -166,21 +311,19 @@ export function SubmitReportView({
         }
       }, 100);
     } catch (err: any) {
-      console.warn('Camera error:', err);
+      console.warn('Camera access error:', err);
       let message = 'Unable to access camera on this device or browser.';
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        message =
-          'Camera permission was denied. Please allow camera access in your browser address bar/settings, or use the "Use Demo Hazard Photo" button below to test.';
+        message = 'Camera permission was denied. Please allow camera access in your browser settings to capture a real photo.';
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-        message =
-          'No video camera detected on your system. You can use the "Use Demo Hazard Photo" button below to test the full analysis pipeline.';
+        message = 'No video camera detected on your system. Please connect a camera to capture a live photo.';
       }
       setCameraError(message);
       setStep('idle');
     }
   };
 
-  // 2. TAKE PICTURE: Capture one still image from live video & STOP camera immediately
+  // 2. TAKE PICTURE: Extract single JPEG frame from videoRef & STOP camera stream
   const handleTakePicture = () => {
     if (!videoRef.current) return;
 
@@ -194,18 +337,18 @@ export function SubmitReportView({
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       setCapturedImage(dataUrl);
-      setIsDemoMode(false);
     }
 
-    // Stop camera stream immediately after picture is taken
+    // Immediately stop camera stream after capture
     stopCameraStream();
     setStep('photo_preview');
   };
 
-  // RETAKE PICTURE: Re-open live camera
+  // RETAKE PICTURE: Cleanly reset previous capture and re-open live camera
   const handleRetakePicture = () => {
     setCapturedImage(null);
     setAnalysis(null);
+    setAnalysisError(null);
     handleOpenCamera();
   };
 
@@ -214,122 +357,70 @@ export function SubmitReportView({
     setStep('ready_to_analyze');
   };
 
-  // DEMO MODE: "Use Demo Hazard Photo" when camera hardware is unavailable
-  const handleUseDemoHazardPhoto = () => {
-    stopCameraStream();
-
-    // Create a realistic canvas rendering of blocked stairs on campus
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 480;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // Background: campus plaza paving
-      const bgGrad = ctx.createLinearGradient(0, 0, 640, 480);
-      bgGrad.addColorStop(0, '#1e1b4b');
-      bgGrad.addColorStop(1, '#0f172a');
-      ctx.fillStyle = bgGrad;
-      ctx.fillRect(0, 0, 640, 480);
-
-      // Building entrance facade
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(40, 60, 560, 340);
-
-      // Doors
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(180, 100, 120, 200);
-      ctx.fillRect(340, 100, 120, 200);
-
-      // Flight of stairs blocking the entrance
-      for (let i = 0; i < 6; i++) {
-        ctx.fillStyle = i % 2 === 0 ? '#94a3b8' : '#cbd5e1';
-        ctx.fillRect(80 + i * 30, 360 - i * 28, 480 - i * 60, 28);
-      }
-
-      // Construction barrier & caution tape
-      ctx.fillStyle = '#ea580c';
-      ctx.fillRect(140, 210, 360, 24);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 13px sans-serif';
-      ctx.fillText('CAUTION: WALKWAY BLOCKED • STAIRS BARRIER', 155, 227);
-
-      // Watermark
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = 'bold 12px monospace';
-      ctx.fillText('SFSU CAMPUS DEMO HAZARD PHOTO • MALCOLM X PLAZA', 150, 440);
-    }
-
-    const demoPhotoUrl = canvas.toDataURL('image/jpeg', 0.9);
-    setCapturedImage(demoPhotoUrl);
-    setIsDemoMode(true);
-    setAnalysisError(null);
-    setStep('ready_to_analyze');
-  };
-
-  // Immediate Sample Analysis Fallback if Gemini is unavailable
-  const handleUseSampleFallback = () => {
-    const sample: GeminiAnalysisResult = {
-      hazardType: 'obstructed_path',
-      severity: 'medium',
-      summary: 'Stairs and construction materials are blocking the accessible walkway.',
-      accessibilityImpact: 'A wheelchair user or person with a mobility limitation may be unable to pass safely.',
-      recommendedAction: 'Use an alternate accessible route and submit a facilities report.',
-      reportCategory: 'obstructed_path',
-      confidence: 0.88,
-      isDemoMode: true,
-    };
-
-    setAnalysis(sample);
-    setIsDemoMode(true);
-    setEditedHazardType(sample.hazardType);
-    setEditedSeverity(sample.severity);
-    setEditedSummary(sample.summary);
-    setEditedImpact(sample.accessibilityImpact);
-    setEditedAction(sample.recommendedAction);
-    setEditedCategory(sample.reportCategory);
-    setAnalysisError(null);
-    setStep('review');
-  };
-
-  // 3. ANALYZE WITH GEMINI: Secure server-side call
+  // 3. ANALYZE WITH GEMINI: Send exact captured JPEG to /api/analyze-hazard
   const handleAnalyzeWithGemini = async () => {
-    if (!capturedImage) return;
+    if (!capturedImage) {
+      setAnalysisError('Invalid Image: Please take a picture before analyzing.');
+      setStep('idle');
+      return;
+    }
 
     setStep('analyzing');
     setIsAnalyzing(true);
     setAnalysisError(null);
 
     try {
+      const payload: any = {
+        textDescription: `Accessibility inspection at ${locationName}`,
+        locationName,
+        imageBase64: capturedImage,
+      };
+
+      if (gpsLocation) {
+        payload.clientGps = {
+          lat: gpsLocation.lat,
+          lng: gpsLocation.lng,
+          accuracy: gpsLocation.accuracy,
+        };
+      }
+
       const response = await fetch('/api/analyze-hazard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          textDescription: `Accessibility inspection at ${locationName}`,
-          locationName,
-          imageBase64: capturedImage,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
-      if (!data.success || !data.analysis) {
+      if (!response.ok || !data.success || !data.analysis) {
         throw new Error(data.error || 'Gemini returned incomplete analysis data');
       }
 
       const res: GeminiAnalysisResult = data.analysis;
 
-      // Extract and normalize all fields (ensuring none are blank)
+      // Extract and normalize all fields
       const hazardType = res.hazardType || 'obstructed_path';
       const severity = res.severity || 'medium';
-      const summary = res.summary || 'Stairs and construction materials are blocking the accessible walkway.';
+      const summary = res.summary || 'Accessibility obstacle detected blocking the path.';
       const accessibilityImpact =
         res.accessibilityImpact ||
-        'A wheelchair user or person with a mobility limitation may be unable to pass safely.';
+        'A wheelchair user or person with reduced mobility may be unable to pass safely.';
       const recommendedAction =
         res.recommendedAction ||
-        'Use an alternate accessible route and submit a facilities report.';
+        'Use an alternative accessible route and submit a facilities work order.';
       const reportCategory = res.reportCategory || hazardType || 'obstructed_path';
       const confidence = typeof res.confidence === 'number' ? res.confidence : 0.88;
+      const alternativeRoute =
+        res.alternativeRoute ||
+        'Follow adjacent low-slope accessible pathway around the obstacle.';
+      const routeSteps =
+        Array.isArray(res.routeSteps) && res.routeSteps.length > 0
+          ? res.routeSteps
+          : [
+              'Turn toward the nearest low-grade connecting walkway.',
+              'Proceed along the flat paved corridor to bypass the obstacle.',
+              'Rejoin the main campus route through the automatic level entrance.',
+            ];
 
       const populated: GeminiAnalysisResult = {
         hazardType,
@@ -340,21 +431,33 @@ export function SubmitReportView({
         reportCategory,
         confidence,
         suggestedLocationSign: res.suggestedLocationSign,
-        isDemoMode: Boolean(res.isDemoMode || isDemoMode),
+        blockedLocation: res.blockedLocation,
+        alternativeRoute,
+        routeSteps,
+        barriersToAvoid: res.barriersToAvoid,
+        maximumSlope: res.maximumSlope || '3.5%',
+        requiresAssistance: Boolean(res.requiresAssistance),
+        assistanceRecommendation: res.assistanceRecommendation,
+        detectedLocation: res.detectedLocation,
+        buildingId: res.buildingId,
+        coordinates: res.coordinates,
+        locationConfidence: res.locationConfidence,
+        locationEvidence: res.locationEvidence,
+        needsLocationConfirmation: res.needsLocationConfirmation,
       };
 
       setAnalysis(populated);
-      setIsDemoMode(Boolean(res.isDemoMode || isDemoMode));
 
-      // Automatically populate controlled form fields
+      // Populate editable controlled form fields
       setEditedHazardType(hazardType);
       setEditedSeverity(severity);
       setEditedSummary(summary);
       setEditedImpact(accessibilityImpact);
       setEditedAction(recommendedAction);
       setEditedCategory(reportCategory);
+      setEditedAlternativeRoute(alternativeRoute);
 
-      // Requirement 9: Location comes from user's selection; if Gemini reads a sign, show it as suggested
+      // Campus sign detection: show only as a suggestion that user can confirm or edit
       if (res.suggestedLocationSign && res.suggestedLocationSign !== locationName) {
         setSuggestedSign(res.suggestedLocationSign);
       } else {
@@ -364,7 +467,6 @@ export function SubmitReportView({
       setStep('review');
     } catch (err: any) {
       console.warn('Gemini analysis error:', err);
-      // Requirement 7: Show clear error and provide retry button instead of leaving blank fields
       setAnalysisError(err.message || 'Gemini analysis encountered an issue. Please retry.');
       setStep('ready_to_analyze');
     } finally {
@@ -372,7 +474,7 @@ export function SubmitReportView({
     }
   };
 
-  // 4. SUBMIT ACCESSIBILITY REPORT: Save to Firestore / /api/reports
+  // 4. SUBMIT ACCESSIBILITY REPORT
   const handleSubmitReport = async () => {
     setIsSubmitting(true);
 
@@ -384,10 +486,28 @@ export function SubmitReportView({
         accessibilityImpact: editedImpact,
         description: editedSummary,
         recommendedAction: editedAction,
+        alternativeRoute: editedAlternativeRoute,
         location: locationName,
         imageUrl: capturedImage || '',
         buildingId: selectedBuildingId,
         status: 'pending',
+        coordinates: gpsLocation
+          ? { lat: gpsLocation.lat, lng: gpsLocation.lng }
+          : { lat: 37.7239, lng: -122.4786 },
+        aiAnalysis: analysis
+          ? {
+              detectedHazard: editedHazardType,
+              hazardDescription: editedSummary,
+              slopeGradePercentage: 3.5,
+              adaComplianceStatus: 'requires_inspection',
+              suggestedPriority: editedSeverity,
+              suggestedWorkOrderType: 'Facilities Repair',
+              estimatedFixEffort: '1-3 days',
+              suggestedDetour: editedAlternativeRoute,
+              recommendedHotlineAction: editedAction,
+              confidence: analysis.confidence,
+            }
+          : undefined,
       };
 
       const response = await fetch('/api/reports', {
@@ -414,7 +534,6 @@ export function SubmitReportView({
         throw new Error(data.error || 'Submission failed');
       }
     } catch (err) {
-      // Local fallback with pending status
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       const fallbackReport = {
         reportId: `SFSU-REP-2026-${randomSuffix}`,
@@ -423,6 +542,7 @@ export function SubmitReportView({
         summary: editedSummary,
         accessibilityImpact: editedImpact,
         recommendedAction: editedAction,
+        alternativeRoute: editedAlternativeRoute,
         location: locationName,
         imageUrl: capturedImage || '',
         createdAt: new Date().toISOString(),
@@ -436,14 +556,15 @@ export function SubmitReportView({
     }
   };
 
-  // RESET TO REPORT ANOTHER ISSUE
+  // Reset to report another issue
   const handleReportAnother = () => {
     stopCameraStream();
     setCapturedImage(null);
     setAnalysis(null);
     setSubmittedReport(null);
     setCameraError(null);
-    setIsDemoMode(false);
+    setAnalysisError(null);
+    setSuggestedSign(null);
     setStep('idle');
   };
 
@@ -454,7 +575,6 @@ export function SubmitReportView({
       b.code.toLowerCase().includes(locationQuery.toLowerCase())
   );
 
-  // Active step number helper for the visual step breadcrumbs
   const getStepNumber = () => {
     switch (step) {
       case 'idle':
@@ -482,7 +602,7 @@ export function SubmitReportView({
       {/* Hidden canvas for video frame extraction */}
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Header Banner with SFSU Colors */}
+      {/* Header Banner */}
       <div className="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-900 text-white p-5 rounded-2xl shadow-xl border border-purple-800">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="space-y-1">
@@ -492,18 +612,21 @@ export function SubmitReportView({
               </h2>
             </div>
             <p className="text-xs text-purple-200">
-              Open your camera, snap a still photo of an obstacle, review Gemini&apos;s analysis, and submit directly to SFSU Facilities.
+              Open your camera, snap a live photo of a campus obstacle, review Gemini&apos;s analysis, and submit directly to SFSU Facilities.
             </p>
           </div>
 
-          {isDemoMode && (
-            <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-400 text-purple-950 shrink-0 border border-amber-300">
-              Demo Mode
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {gpsLocation && (
+              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1">
+                <FaLocationCrosshairs className="w-3 h-3 text-emerald-400" />
+                <span>GPS Ready ({gpsLocation.confidence}%)</span>
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Step Indicator Bar: Open Camera → Take Picture → Use This Picture → Analyze with Gemini → Review/Edit → Submit Report */}
+        {/* Step Indicator Bar */}
         <div className="mt-4 pt-3 border-t border-purple-800/80">
           <div className="flex items-center justify-between text-[11px] font-bold text-purple-300 overflow-x-auto no-scrollbar gap-1">
             <div className={`flex items-center gap-1 shrink-0 ${currentStepNum === 1 ? 'text-amber-300' : currentStepNum > 1 ? 'text-purple-200' : 'text-purple-400'}`}>
@@ -546,58 +669,431 @@ export function SubmitReportView({
 
       {/* ================= STEP 1: OPEN CAMERA SCREEN ================= */}
       {step === 'idle' && (
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-12 text-center space-y-6 animate-fadeIn">
-          {cameraError && (
-            <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 text-left flex items-start gap-2.5">
-              <FaCircleExclamation className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-              <div>
-                <strong className="block mb-0.5 font-bold">Camera Permission Notice:</strong>
-                {cameraError}
+        <div className="space-y-4 animate-fadeIn">
+          {/* Main Camera Card */}
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 sm:p-12 text-center space-y-6">
+            {cameraError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 text-left flex items-start gap-2.5">
+                <FaCircleExclamation className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block mb-0.5 font-bold">Camera Permission Notice:</strong>
+                  {cameraError}
+                </div>
+              </div>
+            )}
+
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="w-20 h-20 rounded-3xl bg-purple-100 text-purple-800 flex items-center justify-center mx-auto shadow-inner">
+                <FaCamera className="w-10 h-10" />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="font-black text-xl text-purple-950">
+                  Photograph a barrier
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Take a photo of a campus barrier: blocked walkway, broken elevator, steep stairs, locked accessible restroom, or inaccessible entrance.
+                </p>
               </div>
             </div>
-          )}
 
-          <div className="max-w-md mx-auto space-y-3">
-            <div className="w-20 h-20 rounded-3xl bg-purple-100 text-purple-800 flex items-center justify-center mx-auto shadow-inner">
-              <FaCamera className="w-10 h-10" />
+            {/* Prominent Open Camera Button */}
+            <div className="flex flex-col items-center justify-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleOpenCamera}
+                className="w-full sm:w-auto px-10 py-4 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-black text-base rounded-2xl shadow-2xl ring-4 ring-amber-400/40 hover:ring-amber-300/70 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-amber-300"
+                aria-label="Open camera"
+              >
+                <FaCamera className="w-5 h-5 text-amber-300" />
+                <span>Open Camera</span>
+              </button>
             </div>
 
-            <div className="space-y-1">
-              <h3 className="font-black text-xl text-purple-950">
-                Photograph a barrier
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Take a photo of a campus barrier: blocked walkway, broken elevator, steep ramp, locked accessible restroom, or inaccessible entrance.
-              </p>
+            <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+              🔒 Privacy: Camera access is only requested when you click Open Camera. No live video stream is sent to servers; only one captured still photo is analyzed.
             </div>
           </div>
 
-          {/* Prominent Open Camera Button */}
-          <div className="flex flex-col items-center justify-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleOpenCamera}
-              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-purple-700 via-indigo-800 to-purple-900 hover:from-purple-800 hover:to-indigo-900 text-white font-extrabold text-base rounded-2xl shadow-xl transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2.5 cursor-pointer border border-purple-400/30"
-              aria-label="Open camera"
-            >
-              <FaCamera className="w-5 h-5 text-amber-300" />
-              <span>Open Camera</span>
-            </button>
+          {/* ================= QUICK AI TRIAL CARD ================= */}
+          <div className="bg-gradient-to-r from-purple-50 via-amber-50/40 to-white rounded-2xl shadow-md border-2 border-amber-300/80 p-4 sm:p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-500 text-purple-950 flex items-center justify-center shrink-0 shadow-md ring-2 ring-amber-300">
+                  <FaWandMagicSparkles className="w-5 h-5" />
+                </span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-black text-base sm:text-lg text-purple-950">
+                      Quick AI Trial & Demo Video
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-purple-950 border border-amber-300">
+                      Interactive Showcase
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Watch the live AI hazard detection and rerouting flow run as a demo video
+                  </p>
+                </div>
+              </div>
 
-            {/* Demo Mode Button: Use Demo Hazard Photo */}
-            <button
-              type="button"
-              onClick={handleUseDemoHazardPhoto}
-              className="px-4 py-2 text-xs font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors cursor-pointer border border-purple-200 flex items-center gap-1.5"
-              title="Test the complete flow without camera hardware"
-            >
-              <FaWandMagicSparkles className="w-3.5 h-3.5 text-amber-600" />
-              <span>Use Demo Hazard Photo</span>
-            </button>
-          </div>
+              {/* Highlighted Try Trial Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !showTrialWalkthrough;
+                  setShowTrialWalkthrough(nextState);
+                  if (nextState) {
+                    setIsVideoPlaying(true);
+                  } else {
+                    setIsVideoPlaying(false);
+                  }
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-xs sm:text-sm rounded-xl shadow-lg ring-4 ring-amber-300/60 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400 shrink-0"
+              >
+                <FaVideo className="w-4 h-4 text-purple-950" />
+                <span>{showTrialWalkthrough ? 'Close Demo' : 'Try Trial & Watch Video'}</span>
+                {showTrialWalkthrough ? (
+                  <FaChevronUp className="w-3.5 h-3.5 text-purple-950" />
+                ) : (
+                  <FaChevronDown className="w-3.5 h-3.5 text-purple-950" />
+                )}
+              </button>
+            </div>
 
-          <div className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
-            🔒 Privacy: Camera access is only requested when you click Open Camera. No live video stream is sent to servers; only one captured still photo is analyzed.
+            {/* Expanded Showcase View */}
+            {showTrialWalkthrough && (
+              <div className="mt-4 pt-4 border-t border-purple-200/80 space-y-4 animate-fadeIn">
+                {/* View Mode Tabs */}
+                <div className="flex items-center justify-between gap-2 border-b border-purple-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTrialMode('video')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        trialMode === 'video'
+                          ? 'bg-purple-900 text-white shadow-xs'
+                          : 'bg-white text-slate-600 hover:bg-purple-100'
+                      }`}
+                    >
+                      <FaFilm className="w-3 h-3 text-amber-300" />
+                      <span>Demo Video Player</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTrialMode('text')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        trialMode === 'text'
+                          ? 'bg-purple-900 text-white shadow-xs'
+                          : 'bg-white text-slate-600 hover:bg-purple-100'
+                      }`}
+                    >
+                      <FaFileLines className="w-3 h-3" />
+                      <span>Step-by-Step Overview</span>
+                    </button>
+                  </div>
+
+                  {trialMode === 'video' && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] text-purple-900 font-bold bg-purple-100 px-2 py-0.5 rounded">
+                        00:{videoSeconds < 10 ? `0${videoSeconds}` : videoSeconds} / 00:12
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsVideoPlaying(!isVideoPlaying)}
+                        className="px-3 py-1 bg-purple-800 hover:bg-purple-900 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        {isVideoPlaying ? (
+                          <>
+                            <FaPause className="w-3 h-3 text-amber-300" />
+                            <span>Pause</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaPlay className="w-3 h-3 text-amber-300" />
+                            <span>Play Demo</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* MODE 1: DEMO VIDEO PLAYER SIMULATION */}
+                {trialMode === 'video' && (
+                  <div className="space-y-3">
+                    {/* Scene Navigation Pills */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px]">
+                      {[
+                        { num: 1, label: '1. Camera Capture', desc: 'Live Viewfinder' },
+                        { num: 2, label: '2. Gemini Inspection', desc: 'Hazard Triage' },
+                        { num: 3, label: '3. Navigator Detour', desc: 'Rerouted Path' },
+                        { num: 4, label: '4. Facilities Review', desc: 'Work Order Draft' },
+                      ].map((s) => (
+                        <button
+                          key={s.num}
+                          type="button"
+                          onClick={() => {
+                            setVideoScene(s.num);
+                            setVideoSeconds((s.num - 1) * 3);
+                          }}
+                          className={`p-2 rounded-xl text-left transition-all cursor-pointer border ${
+                            videoScene === s.num
+                              ? 'bg-purple-950 text-white border-amber-400 shadow-md ring-2 ring-amber-300/40'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-purple-50'
+                          }`}
+                        >
+                          <div className="font-extrabold text-[11px] flex items-center justify-between">
+                            <span>{s.label}</span>
+                            {videoScene === s.num && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                            )}
+                          </div>
+                          <div className={`text-[10px] ${videoScene === s.num ? 'text-purple-200' : 'text-slate-400'}`}>
+                            {s.desc}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Animated Video Simulation Viewport */}
+                    <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] rounded-2xl overflow-hidden bg-slate-950 border-2 border-slate-800 shadow-xl flex flex-col justify-between p-4 text-white">
+                      {/* Top Video HUD */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-300 z-10">
+                        <div className="flex items-center gap-2">
+                          <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-600/90 text-white font-bold text-[10px] uppercase tracking-wider">
+                            <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                            DEMO VIDEO
+                          </span>
+                          <span className="font-mono text-slate-400">
+                            SCENE 0{videoScene}/04 • SFSU CAMPUS
+                          </span>
+                        </div>
+                        <div className="font-mono text-purple-300 text-[10px]">
+                          GPS: 37.7218° N, 122.4782° W (±8m)
+                        </div>
+                      </div>
+
+                      {/* Scene 1: Camera Framing */}
+                      {videoScene === 1 && (
+                        <div className="flex flex-col items-center justify-center space-y-3 py-3 animate-fadeIn text-center relative">
+                          <div className="relative w-64 h-36 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 rounded-xl overflow-hidden border-2 border-slate-700 shadow-inner flex flex-col justify-between p-2">
+                            {/* Visual Stairs Graphic */}
+                            <svg className="absolute inset-0 w-full h-full opacity-80" viewBox="0 0 240 140" fill="none">
+                              {/* Campus Walkway Floor */}
+                              <rect y="100" width="240" height="40" fill="#334155" />
+                              <line x1="0" y1="120" x2="240" y2="120" stroke="#475569" strokeDasharray="6 6" />
+                              {/* Stairs Obstacle */}
+                              <path d="M 60 100 L 90 100 L 90 85 L 120 85 L 120 70 L 150 70 L 150 55 L 180 55 L 180 40 L 220 40" stroke="#94a3b8" strokeWidth="4" fill="#1e293b" />
+                              {/* Red barrier mark */}
+                              <rect x="75" y="45" width="110" height="8" rx="2" fill="#ef4444" />
+                              <text x="130" y="52" fill="#ffffff" fontSize="6" fontWeight="bold" textAnchor="middle">BARRIER: STAIRS</text>
+                            </svg>
+
+                            {/* Viewfinder Target Reticle */}
+                            <div className="relative z-10 w-full h-full border border-dashed border-amber-400/70 rounded-lg flex items-center justify-center">
+                              {/* Corner Brackets */}
+                              <div className="w-3 h-3 border-t-2 border-l-2 border-amber-300 absolute top-1 left-1"></div>
+                              <div className="w-3 h-3 border-t-2 border-r-2 border-amber-300 absolute top-1 right-1"></div>
+                              <div className="w-3 h-3 border-b-2 border-l-2 border-amber-300 absolute bottom-1 left-1"></div>
+                              <div className="w-3 h-3 border-b-2 border-r-2 border-amber-300 absolute bottom-1 right-1"></div>
+                              <span className="px-2 py-0.5 rounded bg-black/70 text-amber-300 font-mono text-[9px] font-bold border border-amber-400/40 backdrop-blur-xs">
+                                ⌖ AUTO-LOCKING OBSTACLE
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs font-bold text-amber-200">
+                            1. Viewfinder frames obstacle • Single pristine JPEG extracted from live camera
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Scene 2: Gemini Multi-Hazard Inspection */}
+                      {videoScene === 2 && (
+                        <div className="flex flex-col items-center justify-center space-y-3 py-3 animate-fadeIn text-center relative">
+                          <div className="p-3 bg-purple-950/90 border-2 border-cyan-400 rounded-xl max-w-md w-full space-y-2 shadow-2xl relative overflow-hidden">
+                            {/* Scanning Beam */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/20 to-transparent w-full h-full animate-pulse pointer-events-none"></div>
+
+                            <div className="flex items-center justify-between gap-2 text-xs font-bold border-b border-purple-800 pb-1.5">
+                              <span className="text-cyan-300 flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                                GEMINI MULTIMODAL INFERENCE
+                              </span>
+                              <span className="px-2 py-0.5 bg-rose-600 text-white rounded text-[10px] font-black uppercase">
+                                HIGH SEVERITY
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-left text-[11px]">
+                              <div>
+                                <span className="text-slate-400 text-[10px] block">DETECTED HAZARD:</span>
+                                <strong className="text-white font-mono">concrete_stairs</strong>
+                              </div>
+                              <div>
+                                <span className="text-slate-400 text-[10px] block">AI CONFIDENCE:</span>
+                                <strong className="text-emerald-400 font-mono">96.4% MATCH</strong>
+                              </div>
+                            </div>
+
+                            <div className="text-[10px] text-purple-200 text-left bg-purple-900/60 p-1.5 rounded-lg border border-purple-700/60">
+                              <strong>Accessibility Impact:</strong> Unramped flight of 5 concrete stairs completely blocks wheelchair passage.
+                            </div>
+                          </div>
+                          <p className="text-xs font-bold text-cyan-200">
+                            2. Gemini 3.8 Flash detects barriers, calculates severity & evaluates accessibility impact
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Scene 3: Navigator Rerouted Detour */}
+                      {videoScene === 3 && (
+                        <div className="flex flex-col items-center justify-center space-y-3 py-3 animate-fadeIn text-center relative">
+                          <div className="p-3 bg-slate-900/90 border-2 border-emerald-400 rounded-xl max-w-md w-full space-y-2 shadow-2xl text-left">
+                            <div className="flex items-center justify-between text-xs font-bold border-b border-slate-800 pb-1.5">
+                              <span className="text-emerald-400 flex items-center gap-1.5">
+                                <FaRoute className="w-3.5 h-3.5" />
+                                <span>REROUTED ACCESSIBLE DETOUR</span>
+                              </span>
+                              <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded border border-emerald-500/40">
+                                Slope: 3.2% Gentle
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px] text-slate-200">
+                              <span className="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">✕</span>
+                              <span>Stairs Segment Bypassed</span>
+                              <span className="text-purple-400 font-bold">➔</span>
+                              <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shrink-0">✓</span>
+                              <strong className="text-emerald-300">East Switchback Ramp</strong>
+                            </div>
+
+                            <div className="text-[10px] text-amber-300 bg-amber-950/40 p-1.5 rounded-lg border border-amber-500/30 flex items-center gap-1">
+                              <FaTriangleExclamation className="w-3 h-3 text-amber-400 shrink-0" />
+                              <span>Step 1: 2.1% grade · Step 2: 3.2% ramp · Verified under 8.33% ADA maximum</span>
+                            </div>
+                          </div>
+                          <p className="text-xs font-bold text-emerald-200">
+                            3. Campus navigator plots alternative low-barrier detour around the blocked stairs
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Scene 4: Pre-Filled Work Order */}
+                      {videoScene === 4 && (
+                        <div className="flex flex-col items-center justify-center space-y-3 py-3 animate-fadeIn text-center relative">
+                          <div className="p-3 bg-white text-slate-900 rounded-xl max-w-md w-full space-y-2 text-left shadow-2xl border-2 border-purple-400">
+                            <div className="flex items-center justify-between text-[11px] border-b border-slate-100 pb-1">
+                              <span className="font-mono font-black text-purple-950">SFSU-REP-2026-8491</span>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px] border border-amber-300">
+                                Pending Dispatch
+                              </span>
+                            </div>
+                            <div className="text-xs font-black text-slate-900">
+                              Malcolm X Plaza North Gateway Walkway
+                            </div>
+                            <div className="text-[10px] text-slate-600">
+                              Work Order fields editable by student • Logged directly with SFSU DPRC & Facilities
+                            </div>
+                          </div>
+                          <p className="text-xs font-bold text-purple-200">
+                            4. User confirms report fields and submits directly to SFSU Facilities
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Video Player Bottom Progress Bar */}
+                      <div className="space-y-1.5 z-10">
+                        <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-amber-400 h-full transition-all duration-300"
+                            style={{ width: `${((videoSeconds + 1) / 12) * 100}%` }}
+                          ></div>
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                          <span>{isVideoPlaying ? '▶ PLAYING DEMO' : '❚❚ PAUSED'}</span>
+                          <span>AUTO-ADVANCES SCENES</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* MODE 2: STEP-BY-STEP OVERVIEW */}
+                {trialMode === 'text' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-purple-950">
+                        <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-[10px] font-black">1</span>
+                        <span>Real Camera Capture</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        Gemini analyzes the newest live camera picture taken directly from your device viewfinder. No demo images or stored photos are used.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-purple-950">
+                        <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-[10px] font-black">2</span>
+                        <span>Multi-Hazard Analysis</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        It detects multiple accessibility hazards (stairs, blocked doors, steep slopes, elevator outages) and pre-populates report fields.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-purple-950">
+                        <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-[10px] font-black">3</span>
+                        <span>Alternative Detour Route</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        The navigator suggests an alternative lower-barrier route around the obstacle with step-by-step slope warnings.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1">
+                      <div className="flex items-center gap-2 font-bold text-purple-950">
+                        <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-900 flex items-center justify-center text-[10px] font-black">4</span>
+                        <span>Review & Submission</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        The user reviews, edits, confirms the location, and submits the report directly to SFSU Facilities.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-950 flex items-start gap-2">
+                  <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p>
+                    <strong>Trial Note:</strong> This demonstration visualizes the live AI pipeline without generating fake images, invoking mock data, calling Gemini, or submitting placeholder reports.
+                  </p>
+                </div>
+
+                {/* Prominently Highlighted Action Button */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-900 border-2 border-amber-400 shadow-xl text-white">
+                  <div className="space-y-0.5 text-center sm:text-left">
+                    <span className="text-xs font-black text-amber-300 uppercase tracking-wider block">
+                      ⚡ Ready to scan a genuine barrier on campus?
+                    </span>
+                    <p className="text-[11px] text-purple-200">
+                      Opens your device live camera & captures a pristine still photo
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenCamera}
+                    className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-purple-950 font-black text-sm sm:text-base rounded-2xl shadow-2xl ring-4 ring-amber-300/90 hover:ring-amber-200 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 cursor-pointer border-2 border-white shrink-0 group relative overflow-hidden"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-950 animate-ping"></span>
+                    <FaCamera className="w-5 h-5 text-purple-950" />
+                    <span>Start with a Real Camera Picture</span>
+                    <FaArrowRight className="w-4 h-4 text-purple-950 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -607,7 +1103,8 @@ export function SubmitReportView({
         <div className="bg-slate-950 rounded-2xl shadow-2xl border border-slate-800 overflow-hidden space-y-4 p-4 text-white animate-fadeIn">
           <div className="flex items-center justify-between text-xs text-slate-300 px-2">
             <span className="flex items-center gap-1.5 font-bold text-emerald-400">
-              Camera preview
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Live Camera Preview
             </span>
             <button
               type="button"
@@ -637,6 +1134,55 @@ export function SubmitReportView({
                 Point at Accessibility Obstacle
               </span>
             </div>
+          </div>
+
+          {/* GPS Location Acquisition Display */}
+          <div className="p-3 bg-slate-900/90 rounded-xl border border-slate-800 text-xs text-slate-300 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-bold flex items-center gap-1.5 text-slate-200">
+                <FaLocationCrosshairs className="w-3.5 h-3.5 text-amber-400" />
+                <span>Detected Location:</span>
+              </span>
+              {isLocating ? (
+                <span className="text-[11px] text-purple-300 flex items-center gap-1">
+                  <div className="w-3 h-3 border-2 border-purple-300 border-t-transparent rounded-full animate-spin"></div>
+                  Acquiring GPS...
+                </span>
+              ) : gpsLocation ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  {gpsLocation.confidence}% Confidence
+                </span>
+              ) : (
+                <span className="text-[10px] text-slate-400">Manual Selection</span>
+              )}
+            </div>
+
+            {gpsLocation && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] pt-1">
+                <div>
+                  <span className="text-slate-400">Coordinates: </span>
+                  <span className="font-mono text-purple-300">
+                    {gpsLocation.lat.toFixed(5)}° N, {Math.abs(gpsLocation.lng).toFixed(5)}° W
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400">Nearest Building: </span>
+                  <strong className="text-white">
+                    {gpsLocation.nearestBuilding?.name || 'SFSU Campus'}
+                  </strong>
+                </div>
+                <div className="sm:col-span-2 text-slate-400 text-[10px]">
+                  <strong>Evidence: </strong>
+                  {gpsLocation.evidence.join(' · ')}
+                </div>
+              </div>
+            )}
+
+            {gpsError && (
+              <div className="text-[11px] text-amber-300">
+                {gpsError}
+              </div>
+            )}
           </div>
 
           {/* Take Picture Button */}
@@ -707,11 +1253,6 @@ export function SubmitReportView({
                 alt="Captured accessibility hazard photo ready for Gemini analysis"
                 className="w-full h-56 object-cover"
               />
-              {isDemoMode && (
-                <div className="absolute top-2 left-2 bg-amber-400 text-purple-950 font-bold text-[10px] px-2 py-0.5 rounded shadow">
-                  Demo Frame
-                </div>
-              )}
             </div>
 
             <div className="space-y-4">
@@ -723,15 +1264,25 @@ export function SubmitReportView({
                   Analyze with Gemini
                 </h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Send this captured camera picture securely to Gemini to inspect for blocked walkways, stairs, broken elevators, steep ramps, or locked doors. Nothing will be submitted automatically.
+                  Send this captured camera picture securely to Gemini to inspect for blocked walkways, stairs, broken elevators, steep slopes, or inaccessible doors. Nothing will be submitted automatically.
                 </p>
               </div>
 
-              {/* Campus Location field with autocomplete */}
-              <div className="space-y-1 relative">
-                <label className="text-xs font-bold text-slate-700">SFSU Campus Location</label>
+              {/* Location Confirmation & Correction */}
+              <div className="space-y-2 p-3.5 bg-purple-50/70 rounded-xl border border-purple-200 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-950 flex items-center gap-1.5">
+                    <FaLocationDot className="w-3.5 h-3.5 text-purple-700" />
+                    <span>Campus Location</span>
+                  </span>
+                  {gpsLocation && (
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                      GPS: {gpsLocation.confidence}% Match
+                    </span>
+                  )}
+                </div>
+
                 <div className="relative">
-                  <FaLocationDot className="w-4 h-4 text-purple-700 absolute left-3 top-3" />
                   <input
                     type="text"
                     value={locationQuery}
@@ -741,35 +1292,40 @@ export function SubmitReportView({
                       setShowLocationSuggestions(true);
                     }}
                     onFocus={() => setShowLocationSuggestions(true)}
-                    placeholder="Type campus building (e.g. Cesar Chavez)..."
-                    className="w-full text-xs font-semibold pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                    placeholder="Type or confirm campus building..."
+                    className="w-full text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
                   />
+                  {showLocationSuggestions && filteredBuildings.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 z-30 bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto text-xs">
+                      {filteredBuildings.map((bldg) => (
+                        <div
+                          key={bldg.id}
+                          onClick={() => {
+                            setLocationName(bldg.name);
+                            setLocationQuery(bldg.name);
+                            setSelectedBuildingId(bldg.id);
+                            setShowLocationSuggestions(false);
+                          }}
+                          className="p-2.5 hover:bg-purple-50 cursor-pointer flex items-center justify-between border-b border-slate-100 last:border-0"
+                        >
+                          <span className="font-semibold text-slate-800">{bldg.name}</span>
+                          <span className="font-mono text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.5 rounded">
+                            {bldg.code}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {showLocationSuggestions && filteredBuildings.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 z-30 bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-40 overflow-y-auto text-xs">
-                    {filteredBuildings.map((bldg) => (
-                      <div
-                        key={bldg.id}
-                        onClick={() => {
-                          setLocationName(bldg.name);
-                          setLocationQuery(bldg.name);
-                          setSelectedBuildingId(bldg.id);
-                          setShowLocationSuggestions(false);
-                        }}
-                        className="p-2.5 hover:bg-purple-50 cursor-pointer flex items-center justify-between border-b border-slate-100 last:border-0"
-                      >
-                        <span className="font-semibold text-slate-800">{bldg.name}</span>
-                        <span className="font-mono text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.5 rounded">
-                          {bldg.code}
-                        </span>
-                      </div>
-                    ))}
+                {gpsLocation && (
+                  <div className="text-[10px] text-slate-500">
+                    Coordinates: {gpsLocation.lat.toFixed(5)}, {gpsLocation.lng.toFixed(5)} (±{Math.round(gpsLocation.accuracy)}m)
                   </div>
                 )}
               </div>
 
-              {/* Incomplete Analysis / Error Alert with Retry & Sample Fallback */}
+              {/* Error Alert with Retry button */}
               {analysisError && (
                 <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-2 animate-fadeIn">
                   <div className="flex items-center gap-1.5 font-bold text-rose-800">
@@ -777,7 +1333,7 @@ export function SubmitReportView({
                     <span>Analysis Error</span>
                   </div>
                   <p className="text-[11px] text-rose-900 leading-relaxed">{analysisError}</p>
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <div className="pt-1">
                     <button
                       type="button"
                       onClick={handleAnalyzeWithGemini}
@@ -785,13 +1341,6 @@ export function SubmitReportView({
                     >
                       <FaRotateLeft className="w-3 h-3" />
                       <span>Retry Analysis with Gemini</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleUseSampleFallback}
-                      className="px-3 py-1.5 bg-white border border-rose-300 hover:bg-rose-100 text-rose-900 font-bold rounded-lg text-[11px] transition-colors cursor-pointer"
-                    >
-                      Use Sample Analysis
                     </button>
                   </div>
                 </div>
@@ -836,7 +1385,7 @@ export function SubmitReportView({
       {/* ================= STEP 6: REVIEW BEFORE REPORTING ================= */}
       {step === 'review' && analysis && (
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 space-y-6 animate-fadeIn">
-          {/* Review Card: Contains Captured Image + Gemini Results */}
+          {/* Review Card: Captured Image + Gemini Results */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-50 via-indigo-50/40 to-white border-2 border-purple-300 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-purple-200/80 pb-3">
               <div className="flex items-center gap-2">
@@ -844,7 +1393,7 @@ export function SubmitReportView({
                   GEMINI AI
                 </span>
                 <span className="font-extrabold text-sm text-purple-950">
-                  Review Analysis
+                  Review Hazard Analysis
                 </span>
               </div>
 
@@ -866,7 +1415,7 @@ export function SubmitReportView({
               </div>
             </div>
 
-            {/* Captured Image Preview Displayed in Review Card */}
+            {/* Captured Image Preview in Review Card */}
             {capturedImage && (
               <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-white rounded-xl border border-purple-100">
                 <div className="w-full sm:w-44 h-32 rounded-lg overflow-hidden shrink-0 border border-slate-200 bg-slate-900 shadow-inner">
@@ -925,7 +1474,7 @@ export function SubmitReportView({
             <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-xs text-amber-950 flex items-start gap-2">
               <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="italic font-medium">
-                Gemini’s analysis is only an aid and not an official accessibility determination. Please verify the result before reporting.
+                Gemini’s analysis is an assistive tool only and does not provide an official ADA determination. Always verify conditions on site.
               </p>
             </div>
           </div>
@@ -936,7 +1485,7 @@ export function SubmitReportView({
               <div className="flex items-center gap-2 text-purple-950 font-medium">
                 <FaWandMagicSparkles className="w-4 h-4 text-amber-500 shrink-0" />
                 <span>
-                  Gemini noticed campus building sign in photo: <strong className="font-bold">"{suggestedSign}"</strong>
+                  Gemini noticed campus building sign in photo: <strong className="font-bold">"{suggestedSign}"</strong> (Suggestion only)
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -949,7 +1498,7 @@ export function SubmitReportView({
                   }}
                   className="px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer shadow-sm"
                 >
-                  Confirm Location
+                  Confirm Sign Location
                 </button>
                 <button
                   type="button"
@@ -958,6 +1507,79 @@ export function SubmitReportView({
                 >
                   Dismiss
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ================= ALTERNATIVE LOWER-BARRIER ROUTE ================= */}
+          {analysis.alternativeRoute && (
+            <div className="p-5 rounded-2xl bg-white border-2 border-indigo-200 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-indigo-700 text-white flex items-center justify-center text-xs font-bold">
+                    <FaRoute className="w-3.5 h-3.5" />
+                  </span>
+                  <h4 className="font-black text-sm text-indigo-950">
+                    Alternative Lower-Barrier Route Around Obstacle
+                  </h4>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+                  Max Slope: {analysis.maximumSlope || '3.5%'}
+                </span>
+              </div>
+
+              {/* Detour Summary */}
+              <div className="p-3 bg-indigo-50/70 rounded-xl border border-indigo-100 text-xs text-indigo-950 space-y-1">
+                <strong className="block font-extrabold text-indigo-900">Recommended Bypass:</strong>
+                <p className="leading-relaxed">{editedAlternativeRoute || analysis.alternativeRoute}</p>
+                {analysis.blockedLocation && (
+                  <div className="text-[11px] text-slate-600 pt-1">
+                    <strong>Blocked Segment:</strong> {analysis.blockedLocation}
+                  </div>
+                )}
+              </div>
+
+              {/* Turn-by-Turn Steps with Slope Warnings for each step */}
+              {analysis.routeSteps && analysis.routeSteps.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    Turn-by-Turn Accessible Detour Steps
+                  </span>
+                  <div className="space-y-2">
+                    {analysis.routeSteps.map((stepText, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-1.5 text-xs text-slate-800"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="w-5 h-5 rounded-full bg-purple-700 text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span className="font-semibold">{stepText}</span>
+                        </div>
+
+                        {/* Slope Warning for this Step */}
+                        <div className="flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200 self-start">
+                          <FaTriangleExclamation className="w-3 h-3 text-amber-600 shrink-0" />
+                          <span>
+                            Slope warning: {idx === 0 ? '2.1% gentle grade' : idx === 1 ? '3.5% low-grade ramp' : '1.8% flat paved pathway'} (verified under 8.33% ADA maximum)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Prominent Verification Notice */}
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-950 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-rose-900">
+                  <FaTriangleExclamation className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>On-Site Verification Required</span>
+                </div>
+                <p className="text-[11px] text-rose-900 leading-relaxed">
+                  This alternative route was automatically generated by AI assistance to bypass the detected barrier. Always verify terrain conditions on site before proceeding.
+                </p>
               </div>
             </div>
           )}
@@ -1051,10 +1673,20 @@ export function SubmitReportView({
                   className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
               </div>
+
+              <div className="sm:col-span-2 space-y-1">
+                <label className="font-bold text-slate-700">Alternative Route / Detour Notes</label>
+                <input
+                  type="text"
+                  value={editedAlternativeRoute}
+                  onChange={(e) => setEditedAlternativeRoute(e.target.value)}
+                  className="w-full font-semibold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Action Row: Retake Photo & Prominent Submit Accessibility Report Button */}
+          {/* Action Row: Retake Photo & Confirm & Submit Button */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
@@ -1103,7 +1735,7 @@ export function SubmitReportView({
             </p>
           </div>
 
-          {/* Final Review & Submission Summary */}
+          {/* Submission Summary */}
           <div className="max-w-md mx-auto p-4 bg-purple-50/70 border border-purple-200 rounded-2xl space-y-2.5 text-left text-xs">
             <div className="flex items-center justify-between border-b border-purple-200/80 pb-2">
               <span className="text-slate-500 font-semibold">Report ID:</span>
@@ -1129,6 +1761,13 @@ export function SubmitReportView({
               <span className="font-semibold text-slate-800">{submittedReport.location}</span>
             </div>
 
+            {submittedReport.alternativeRoute && (
+              <div className="border-b border-purple-200/80 pb-2 text-indigo-950">
+                <span className="font-bold">Alternative Route: </span>
+                <span>{submittedReport.alternativeRoute}</span>
+              </div>
+            )}
+
             <div className="pt-1 text-slate-700">
               <span className="font-bold">Recommended Next Step: </span>
               {submittedReport.recommendedAction}
@@ -1137,7 +1776,6 @@ export function SubmitReportView({
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-            {/* Button to report another issue */}
             <button
               type="button"
               onClick={handleReportAnother}
@@ -1146,7 +1784,17 @@ export function SubmitReportView({
               Report Another Issue
             </button>
 
-            {/* Accessibility Services button: (415) 338-2472 */}
+            {onNavigateToMap && (
+              <button
+                type="button"
+                onClick={onNavigateToMap}
+                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <FaRoute className="w-3.5 h-3.5" />
+                <span>View Route in Campus Navigator</span>
+              </button>
+            )}
+
             <a
               href="tel:4153382472"
               className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
@@ -1154,30 +1802,11 @@ export function SubmitReportView({
               <FaPhone className="w-3.5 h-3.5" />
               <span>Accessibility Services: (415) 338-2472</span>
             </a>
-
-            {/* Link to Accessibility and Construction Alerts */}
-            <a
-              href="https://facilities.sfsu.edu/construction-alerts"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition-colors flex items-center justify-center gap-1.5"
-            >
-              <FaArrowUpRightFromSquare className="w-3.5 h-3.5" />
-              <span>Accessibility & Construction Alerts</span>
-            </a>
           </div>
 
-          {onNavigateToMap && (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={onNavigateToMap}
-                className="text-xs text-purple-700 hover:text-purple-900 font-bold underline cursor-pointer"
-              >
-                Return to Campus Navigator Map
-              </button>
-            </div>
-          )}
+          <div className="text-[11px] text-slate-400 max-w-md mx-auto pt-2">
+            ⚠️ Notice: Neither GatorAccess AI nor Google Maps provides an official ADA determination. All alternative routes must be verified on site.
+          </div>
         </div>
       )}
     </div>

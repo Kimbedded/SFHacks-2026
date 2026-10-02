@@ -123,3 +123,27 @@ export interface AccessibleRouteOption {
   warningNotice?: string;
   googleMapsUrl?: string;
 }
+
+export interface VoiceAssistResponse {
+  identifiedNeed: string;
+  targetTab: 'map' | 'report' | 'elevators' | 'support';
+  openModal?: 'hotline' | 'none';
+  spokenResponse: string;
+  audioBase64?: string | null;
+  transcription?: string;
+  uiFeedback: string;
+  actionDetails?: {
+    originBuildingId?: string;
+    destBuildingId?: string;
+    buildingName?: string;
+    reportCategory?: string;
+    reportDescription?: string;
+    ridePickupLocation?: string;
+    rideDropoffLocation?: string;
+    rideMobilityNeed?: string;
+    elevatorId?: string;
+    filterText?: string;
+  };
+  suggestedQuickActions?: string[];
+}
+

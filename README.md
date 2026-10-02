@@ -14,9 +14,12 @@ Campus navigation is fraught with unexpected barriers for disabled students, man
    - Real-time status for all SFSU elevators, accessible power doors, and known ramps.
    - Dynamic barrier detection: if an elevator is marked offline, routes automatically detour around stairs using ADA-compliant ramps (slopes < 8.33%).
 
-2. **Multimodal AI Hazard Scanner (Gemini 3.8 Flash)**:
-   - Students upload or snap a photo of any accessibility obstacle (stairs, locked door, blocked ramp, broken blue push plate, elevator error code).
-   - Gemini calculates ramp slope grade %, evaluates ADA compliance status, suggests safe detour paths, and auto-generates an official SFSU Facilities Services Work Order draft.
+2. **Multimodal AI Hazard Scanner (Gemini 3.8 Flash & Live Camera)**:
+   - **Real Camera Only**: Uses live camera capture (`videoRef` → canvas JPEG extraction). Never uses mock, uploaded, or placeholder images.
+   - **Quick AI Trial**: Interactive walkthrough on the idle scanner page outlining the 4-step pipeline (Camera capture → Gemini hazard detection → Lower-barrier reroute → Review & submission) without generating fake data.
+   - **GPS Grounding**: Acquires high-accuracy GPS coordinates, detects nearest SFSU building, confidence score, and geolocation evidence.
+   - **Alternative Accessible Rerouting**: Generates alternative routes bypassing obstacles with step-by-step slope warnings.
+   - **Assistive Tool Disclaimer**: Disclaims official ADA determinations; on-site verification is required.
 
 3. **Automated Facilities Dispatch & Priority Grouping**:
    - Submissions instantly create official SFSU Facilities Work Orders (e.g. `SFSU-FAC-2026-0891`).
@@ -69,6 +72,37 @@ Copy `.env.example` to `.env`:
 GEMINI_API_KEY="YOUR_GEMINI_API_KEY"
 VITE_GOOGLE_MAPS_API_KEY="YOUR_GOOGLE_MAPS_API_KEY"
 ```
+
+---
+
+## 📸 Real-Camera AI Hazard Scanner Demo Steps
+
+1. **Quick AI Trial**:
+   - Navigate to the **AI Hazard Scanner** tab.
+   - Click **Try Trial** on the **Quick AI Trial** card to expand the 4-step walkthrough without calling Gemini or generating fake data.
+   - Click **Start with a Real Camera Picture** to launch the camera workflow.
+
+2. **Capture Live Photo & Acquire GPS**:
+   - Tap **Open Camera** to grant camera and GPS permissions.
+   - The system displays real-time coordinates, nearest SFSU building, confidence score, and geolocation evidence.
+   - Point your camera at a campus barrier (e.g. flight of stairs, blocked entrance, steep ramp).
+   - Tap **Take Picture** to capture a pristine JPEG frame; video stream stops immediately.
+
+3. **Stage & Analyze with Gemini**:
+   - Review captured image; tap **Use This Picture** (or **Retake Picture** to clear and restart).
+   - Confirm or edit the detected campus location.
+   - Tap **Analyze with Gemini**. The server securely passes the real JPEG to `gemini-3.8-flash`.
+
+4. **Review & Alternative Route Guidance**:
+   - Inspect detected hazard type, severity, summary, and accessibility impact.
+   - If Gemini detects a campus sign, it appears as a suggestion you can confirm or edit.
+   - View the **Alternative Lower-Barrier Route Around Obstacle** with turn-by-turn steps, step-by-step slope warnings (e.g., `< 8.33% ADA threshold`), and on-site verification notice.
+   - All report fields remain fully editable before submission.
+
+5. **Submit & Facilities Integration**:
+   - Tap **Confirm & Submit Accessibility Report**.
+   - Work order is dispatched to SFSU Facilities with report ID and status.
+   - Tap **View Route in Campus Navigator** to see the visible rerouted polyline and waypoints on the interactive map.
 
 ---
 

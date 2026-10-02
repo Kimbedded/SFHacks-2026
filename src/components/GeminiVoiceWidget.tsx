@@ -20,7 +20,7 @@ import {
   RotateCcw,
   Radio
 } from 'lucide-react';
-import { VoiceAssistResponse } from '../../server/geminiService';
+import { VoiceAssistResponse } from '../types';
 
 interface GeminiVoiceWidgetProps {
   onNavigate: (
@@ -413,13 +413,13 @@ export const GeminiVoiceWidget: React.FC<GeminiVoiceWidgetProps> = ({
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          {/* Peeking Prompt Balloon on Hover */}
+          {/* Peeking Prompt Balloon on Hover (Desktop/Tablet only, hidden on mobile) */}
           <div 
             onClick={() => {
               setIsOpen(true);
               startRecording();
             }}
-            className={`mr-3 px-4 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-purple-200 shadow-xl text-slate-800 text-xs sm:text-sm font-medium transition-all duration-300 cursor-pointer hover:border-purple-400 group max-w-xs ${
+            className={`hidden sm:block mr-3 px-4 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-purple-200 shadow-xl text-slate-800 text-xs sm:text-sm font-medium transition-all duration-300 cursor-pointer hover:border-purple-400 group max-w-xs ${
               isHovered ? 'opacity-100 translate-x-0 scale-100' : 'opacity-90 translate-x-1 sm:opacity-100'
             }`}
           >

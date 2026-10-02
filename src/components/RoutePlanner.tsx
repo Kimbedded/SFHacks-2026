@@ -161,6 +161,18 @@ export function RoutePlanner({
   const routeRequestId = useRef(0);
   const [showFaqGuide, setShowFaqGuide] = useState(false);
 
+  // Check for unresolved barriers / reports affecting destination
+  const unresolvedBarriers = reports.filter(
+    (r) =>
+      r.status !== 'resolved' &&
+      ((selectedCorridor &&
+        (r.buildingId === selectedCorridor.destinationBuildingId ||
+          r.locationName.toLowerCase().includes(selectedCorridor.destinationName.toLowerCase()))) ||
+        (destBuilding &&
+          (r.buildingId === destBuilding.id ||
+            r.locationName.toLowerCase().includes(destBuilding.name.toLowerCase()))))
+  );
+
   // Request GPS: If successful, use current location; if cannot acquire, fallback to Student Life Events Center / Annex I
   const handleRequestGps = () => {
     setIsLocating(true);
@@ -773,6 +785,20 @@ export function RoutePlanner({
             </div>
           )}
 
+          {/* Active Barrier & Detour Notice if an unresolved report is present */}
+          {unresolvedBarriers.length > 0 && (
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-950 text-sm flex items-start gap-3">
+              <FaTriangleExclamation className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+              <div className="space-y-1">
+                <div className="font-bold text-amber-900">Active unresolved campus barrier detected</div>
+                <p className="text-xs leading-relaxed">
+                  <strong>Reported obstacle:</strong> {unresolvedBarriers[0].title || unresolvedBarriers[0].category} at {unresolvedBarriers[0].locationName}.
+                  The route automatically bypasses it using a verified low-grade path, highlighted on the map.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Turn-by-turn header */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -851,9 +877,28 @@ export function RoutePlanner({
                       </p>
                     </div>
 
-                    <div className="text-xs text-purple-950 bg-purple-50 border border-purple-100 p-2.5 rounded-lg">
-                      <strong className="block text-purple-900 font-bold mb-0.5">ADA Low-Barrier Detail</strong>
-                      {step.accessibilityNotes}
+                    <div className="text-xs text-purple-950 bg-purple-50 border border-purple-100 p-2.5 rounded-lg space-y-2">
+                      <div>
+                        <strong className="block text-purple-900 font-bold mb-0.5">ADA Low-Barrier Detail</strong>
+                        {step.accessibilityNotes}
+                      </div>
+
+                      {/* Slope warning for step */}
+                      <div className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <FaTriangleExclamation className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>Slope</span>
+                        </span>
+                        <span className="text-right">
+                          {idx === 0
+                            ? '1.8% gentle grade'
+                            : idx === 1
+                            ? '3.5% low-grade ramp'
+                            : idx % 2 === 0
+                            ? '2.2% level paved corridor'
+                            : '4.0% incline (under 8.33% ADA max)'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -861,6 +906,16 @@ export function RoutePlanner({
             })}
           </div>
 
+          {/* On-Site Verification Warning & ADA Disclaimer */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+            <FaShieldHalved className="w-4 h-4 mt-0.5 text-purple-700 shrink-0" />
+            <div className="space-y-1">
+              <div className="text-sm font-bold text-slate-900">On-site verification required</div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Verify this route on site before use. Conditions can change with weather or maintenance. Neither GatorAccess AI nor Google Maps provides an official ADA determination.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

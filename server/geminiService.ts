@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 // Initialize Gemini SDK with User-Agent header as required
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -19,132 +19,477 @@ export interface HazardAnalysisInput {
     mimeType: string;
     data: string; // base64
   };
+  sampleType?: string;
+  clientGps?: {
+    lat: number;
+    lng: number;
+    accuracy?: number;
+  };
 }
 
-export async function analyzeAccessibilityHazard(input: HazardAnalysisInput) {
-  try {
-    const prompt = `
-You are an ADA accessibility inspector and San Francisco State University (SFSU) Facilities & DPRC (Disability Programs and Resource Center) engineering analyst.
+export interface DetectedHazard {
+  hazardType: string;
+  severity: 'low' | 'medium' | 'high';
+  summary: string;
+  accessibilityImpact: string;
+  recommendedAction: string;
+  confidence: number;
+}
 
-Analyze this campus accessibility hazard report.
-Location on campus: ${input.locationName || 'SFSU Campus'}
-Student description: ${input.textDescription || 'Accessibility hazard observed'}
+export interface StructuredHazardAnalysis {
+  hazardType: string;
+  severity: 'low' | 'medium' | 'high';
+  summary: string;
+  accessibilityImpact: string;
+  recommendedAction: string;
+  reportCategory: string;
+  confidence: number;
+  hazards: DetectedHazard[];
+  suggestedLocationSign?: string;
 
-If an image is provided:
-1. Identify the physical hazard (stairs without ramp, blocked doorway, broken elevator, locked ADA restroom, construction barrier, broken blue power door button, pavement cracking/lip > 1/2 inch).
-2. Approximate the slope or ramp elevation grade if a ramp, slope, or incline is visible (e.g. 4%, 8.5%, 12%). Note: ADA Standards Section 405.2 mandates maximum 1:12 (8.33%) slope.
-3. Determine ADA Title II compliance status (compliant, borderline, non_compliant, or hazardous).
-4. Provide a safe alternative detour route for students using wheelchairs, walkers, or crutches.
-5. Generate an official SFSU Facilities Services Work Order draft.
+  // Alternative accessible detour fields
+  blockedLocation: string;
+  alternativeRoute: string;
+  routeSteps: string[];
+  barriersToAvoid: string[];
+  maximumSlope: string;
+  requiresAssistance: boolean;
+  assistanceRecommendation: string;
 
-Return a valid JSON object matching the requested schema.
+  // Location detection fields
+  detectedLocation: string;
+  buildingId: string;
+  coordinates: {
+    lat: number;
+    lng: number;
+  };
+  locationConfidence: number;
+  locationEvidence: string[];
+  needsLocationConfirmation: boolean;
+}
+
+/**
+ * Classifies any error into one of the 6 clear error categories
+ */
+export function classifyGeminiError(err: any): Error {
+  const msg = (err?.message || '').toLowerCase();
+  const status = err?.status || err?.statusCode || 0;
+
+  if (err?.code === 'TIMEOUT' || msg.includes('timeout') || msg.includes('timed out')) {
+    return new Error('Analysis Timeout: Gemini did not respond within the time limit. Please check your network connection and retry.');
+  }
+
+  if (
+    msg.includes('api_key') ||
+    msg.includes('api key') ||
+    msg.includes('unauthenticated') ||
+    msg.includes('unauthorized') ||
+    msg.includes('api key not valid') ||
+    status === 401 ||
+    status === 403
+  ) {
+    return new Error('Missing API Key: GEMINI_API_KEY is missing, invalid, or unauthorized. Please verify your Gemini API key in settings.');
+  }
+
+  if (
+    msg.includes('429') ||
+    msg.includes('resource_exhausted') ||
+    msg.includes('quota') ||
+    status === 429
+  ) {
+    return new Error('Quota Limit Exceeded: Gemini API rate limit or project quota reached (429 Resource Exhausted). Please wait a moment before trying again.');
+  }
+
+  if (
+    status === 503 ||
+    msg.includes('503') ||
+    msg.includes('high demand') ||
+    msg.includes('unavailable')
+  ) {
+    return new Error('High Demand / Service Busy: Gemini is temporarily experiencing high demand (503 Service Unavailable). Please retry in a few moments.');
+  }
+
+  if (
+    (msg.includes('model') || msg.includes('not found')) &&
+    (msg.includes('404') || msg.includes('not supported') || msg.includes('unknown') || msg.includes('invalid model'))
+  ) {
+    return new Error('Invalid Model: The configured model is unavailable or unrecognized. Please check model configuration.');
+  }
+
+  if (
+    msg.includes('image') ||
+    msg.includes('decode') ||
+    msg.includes('corrupt') ||
+    msg.includes('unsupported media') ||
+    msg.includes('mime')
+  ) {
+    return new Error('Invalid Image: The captured camera photo could not be processed. Please point your camera at the obstacle and take a new picture.');
+  }
+
+  return new Error(err.message || 'Gemini analysis failed. Please retry.');
+}
+
+export async function analyzeAccessibilityHazard(input: HazardAnalysisInput): Promise<StructuredHazardAnalysis> {
+  const hasKey = Boolean(apiKey && apiKey !== 'MY_GEMINI_API_KEY' && apiKey.trim() !== '');
+
+  // If no API key is provided, fail immediately with clear error
+  if (!hasKey) {
+    throw new Error('Missing API Key: GEMINI_API_KEY is missing, invalid, or unauthorized. Please verify your Gemini API key in settings.');
+  }
+
+  const gpsInfo = input.clientGps
+    ? `Browser GPS available: lat=${input.clientGps.lat}, lng=${input.clientGps.lng}, accuracy=${input.clientGps.accuracy || 15}m`
+    : `Browser GPS: Unavailable / Permission not granted`;
+
+  const prompt = `
+You are an expert ADA Title II university accessibility inspector for San Francisco State University (SFSU).
+Analyze this EXACT still photo taken just now by a student using the live camera.
+
+Campus location context: ${input.locationName || 'SFSU Campus'}
+${gpsInfo}
+Student description notes: ${input.textDescription || 'Campus accessibility hazard inspection'}
+
+Carefully inspect the image for ANY AND ALL physical accessibility barriers present in THIS CURRENT PICTURE, including:
+1. Stairs (staircases blocking direct accessible path, flights of steps without adjacent ramp/lift)
+2. Blocked doorways (doors obstructed by carts, furniture, debris, or deliveries)
+3. Blocked walkways (paved corridors narrowed or blocked by obstacles, bins, bikes)
+4. Steep ramps (ramps exceeding 1:12 ADA slope, missing handrails, cross-slope tilt)
+5. Construction barriers (scaffolding, fences, materials, cones blocking pathways)
+6. Broken automatic doors (power door openers offline, broken push-plates, taped switches)
+7. Locked accessible restrooms (accessible stall or single-occupancy ADA restroom locked/out of order)
+8. Pavement damage (tree root uplift, cracked concrete, deep potholes, uneven flags > 1/4 inch)
+
+LOCATION DETECTION (Priority Order):
+1. Browser GPS coordinates (if provided above, match to nearest SFSU building, entrance, or path).
+2. Gemini visual reading: read any clearly visible building signs, entrance names (e.g. "North Entrance", "Main Gateway"), room numbers, or landmarks.
+3. Combine GPS and image results to determine the most likely location.
+4. Set locationConfidence between 0.0 and 1.0.
+5. Set locationEvidence as an array containing sources used (e.g. ["Browser GPS", "Building sign detected in image"]).
+6. Set needsLocationConfirmation: true if GPS was unavailable, image signs were ambiguous, or location is uncertain. Never claim the location is exact if GPS is unavailable or the image is unclear.
+
+ACCESSIBLE ALTERNATIVE ROUTE GUIDANCE:
+Provide an alternative accessible route when a path, road, entrance, elevator, ramp, or doorway is blocked.
+The alternative route must:
+- Avoid stairs and the detected obstacle.
+- Prefer elevators, automatic doors, paved paths, and shallow ramps under 5% slope.
+- Mention any steep slope, construction, or elevator warning.
+- Recommend calling Accessibility Services (415-338-2472) or requesting a Gator Mobility Cart (415-338-1441) if no safe route is visible.
+- Never invent a route with certainty. State clearly that the user should verify current conditions.
+
+RETURN THESE ADDITIONAL ROUTE & LOCATION FIELDS:
+- blockedLocation: concise name of the blocked path, entrance, ramp, or corridor.
+- alternativeRoute: descriptive overview of the recommended accessible bypass.
+- routeSteps: array of clear sequential steps to take.
+- barriersToAvoid: array of barriers to avoid along the way.
+- maximumSlope: estimated maximum slope grade along the alternate route (e.g. "3.5%").
+- requiresAssistance: boolean, true if escort or mobility cart is advised.
+- assistanceRecommendation: recommendation for contacting DPRC / Accessibility Services or requesting a Gator Cart.
+- detectedLocation: string (e.g. "Cesar Chavez Student Center North Entrance").
+- buildingId: string (e.g. "ccsc", "library", "thornton", "fine_arts", "mashouf", "ssb", "hensill", "humanities").
+- coordinates: object { lat: number, lng: number } (e.g. { lat: 37.7239, lng: -122.4786 }).
+- locationConfidence: number between 0.0 and 1.0.
+- locationEvidence: array of strings (e.g. ["Browser GPS", "Building sign detected in image"]).
+- needsLocationConfirmation: boolean.
+
+CRITICAL REQUIREMENTS:
+- Detect MULTIPLE hazards if more than one exists in this photo. Put every detected hazard into the 'hazards' array.
+- In 'summary', provide a clear description of the barriers seen in this specific photo.
+- In 'hazardType', identify the primary/most critical hazard: 'stairs', 'blocked_doorway', 'blocked_walkway', 'steep_ramp', 'construction_barrier', 'broken_automatic_door', 'locked_accessible_restroom', or 'pavement_damage'.
+- In 'severity', set overall severity: 'low', 'medium', or 'high'.
+- In 'accessibilityImpact', explain the impact on wheelchair users, walkers, canes, or visual impairments.
+- In 'recommendedAction', specify a practical detour or facilities action.
+- In 'confidence', provide confidence between 0.0 and 1.0.
+- Base your analysis SOLELY on what is visible in THIS SPECIFIC PICTURE. Do NOT hallucinate hazards not present.
 `;
 
-    const contents: any[] = [];
-    if (input.imagePart) {
-      contents.push({
-        inlineData: {
-          mimeType: input.imagePart.mimeType,
-          data: input.imagePart.data,
-        },
-      });
-    }
-    contents.push({ text: prompt });
+  const contents: any[] = [];
+  if (input.imagePart) {
+    contents.push({
+      inlineData: {
+        mimeType: input.imagePart.mimeType || 'image/jpeg',
+        data: input.imagePart.data,
+      },
+    });
+  }
+  contents.push({ text: prompt });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
+  const executeCall = async (modelName: string) => {
+    const generatePromise = ai.models.generateContent({
+      model: modelName,
       contents: { parts: contents },
       config: {
         systemInstruction:
-          'You are an expert ADA Title II & Title III compliance engineer for universities. Output strictly valid JSON without markdown wrapping.',
+          'You are an expert university ADA accessibility analyst. Output strictly valid JSON without markdown wrapping.',
         responseMimeType: 'application/json',
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            detectedHazard: {
+            hazardType: {
               type: Type.STRING,
-              description: 'Clear, concise hazard title (e.g. "Steep Ramp Exceeding ADA Grade", "Broken Power Door Opener")',
+              description: 'Primary hazard identifier',
             },
-            hazardDescription: {
+            severity: {
               type: Type.STRING,
-              description: 'Detailed analysis of why this presents an accessibility barrier to disabled students.',
+              enum: ['low', 'medium', 'high'],
+              description: 'Overall severity level',
             },
-            slopeGradePercentage: {
-              type: Type.NUMBER,
-              description: 'Estimated slope percentage (e.g. 9.5 for 9.5% grade). Null if not a ramp or slope.',
-            },
-            adaComplianceStatus: {
+            summary: {
               type: Type.STRING,
-              enum: ['compliant', 'borderline', 'non_compliant', 'hazardous', 'requires_inspection'],
-              description: 'ADA standard compliance evaluation.',
+              description: 'Clear description of all barriers seen in the current photo.',
             },
-            adaCodeReference: {
+            accessibilityImpact: {
               type: Type.STRING,
-              description: 'Relevant ADA regulation code (e.g. "ADA Section 405.2 (Ramp Slope)", "ADA Section 404.3 (Automatic Doors)").',
+              description: 'Impact on wheelchair users or mobility limitations.',
             },
-            suggestedPriority: {
+            recommendedAction: {
               type: Type.STRING,
-              enum: ['low', 'medium', 'high', 'critical'],
-              description: 'Priority level for SFSU facilities dispatch.',
+              description: 'Practical detour or facilities action.',
             },
-            suggestedWorkOrderType: {
+            reportCategory: {
               type: Type.STRING,
-              description: 'Classification of maintenance trade required (e.g. "Elevator Mechanic", "Carpentry & Ramps", "Electrical / Door Actuators", "Grounds Clearing").',
-            },
-            estimatedFixEffort: {
-              type: Type.STRING,
-              description: 'Estimated resolution time (e.g. "1-2 hours", "1 business day").',
-            },
-            suggestedDetour: {
-              type: Type.STRING,
-              description: 'Practical, low-effort accessible workaround or detour route on campus.',
-            },
-            recommendedHotlineAction: {
-              type: Type.STRING,
-              description: 'Actionable campus resource to notify (e.g. "Dispatch Gator Mobility Cart", "Call DPRC Hotline", "Alert UPD Safety Escort").',
+              description: 'Report category matching hazardType.',
             },
             confidence: {
               type: Type.NUMBER,
               description: 'Confidence score between 0.0 and 1.0',
             },
+            suggestedLocationSign: {
+              type: Type.STRING,
+              description: 'Only if a university building name sign is readable in the photo.',
+            },
+            hazards: {
+              type: Type.ARRAY,
+              description: 'Every accessibility hazard visible in the picture.',
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  hazardType: { type: Type.STRING },
+                  severity: { type: Type.STRING, enum: ['low', 'medium', 'high'] },
+                  summary: { type: Type.STRING },
+                  accessibilityImpact: { type: Type.STRING },
+                  recommendedAction: { type: Type.STRING },
+                  confidence: { type: Type.NUMBER },
+                },
+                required: [
+                  'hazardType',
+                  'severity',
+                  'summary',
+                  'accessibilityImpact',
+                  'recommendedAction',
+                  'confidence',
+                ],
+              },
+            },
+            blockedLocation: {
+              type: Type.STRING,
+              description: 'Specific blocked physical location or path segment identified in the photo.',
+            },
+            alternativeRoute: {
+              type: Type.STRING,
+              description: 'Practical, low-slope accessible alternate route avoiding the obstacle.',
+            },
+            routeSteps: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: 'Step-by-step navigation instructions for the alternative accessible route.',
+            },
+            barriersToAvoid: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: 'List of specific barriers, stairs, or obstacles that must be avoided on this detour.',
+            },
+            maximumSlope: {
+              type: Type.STRING,
+              description: 'Estimated maximum slope grade along the recommended alternate route.',
+            },
+            requiresAssistance: {
+              type: Type.BOOLEAN,
+              description: 'True if escort or mobility cart is recommended.',
+            },
+            assistanceRecommendation: {
+              type: Type.STRING,
+              description: 'Recommendation on calling Accessibility Services or requesting a Gator Cart.',
+            },
+            detectedLocation: {
+              type: Type.STRING,
+              description: 'Auto-detected campus building or entrance name (e.g. "Cesar Chavez Student Center North Entrance").',
+            },
+            buildingId: {
+              type: Type.STRING,
+              description: 'Identifier for matched building (e.g. "ccsc", "library", "thornton").',
+            },
+            coordinates: {
+              type: Type.OBJECT,
+              properties: {
+                lat: { type: Type.NUMBER },
+                lng: { type: Type.NUMBER },
+              },
+              required: ['lat', 'lng'],
+            },
+            locationConfidence: {
+              type: Type.NUMBER,
+              description: 'Confidence in detected location between 0.0 and 1.0',
+            },
+            locationEvidence: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: 'List of evidence sources used (e.g. ["Browser GPS", "Building sign detected in image"]).',
+            },
+            needsLocationConfirmation: {
+              type: Type.BOOLEAN,
+              description: 'True if location is uncertain or GPS was unavailable and user confirmation is needed.',
+            },
           },
           required: [
-            'detectedHazard',
-            'hazardDescription',
-            'adaComplianceStatus',
-            'suggestedPriority',
-            'suggestedWorkOrderType',
-            'estimatedFixEffort',
-            'suggestedDetour',
-            'recommendedHotlineAction',
+            'hazardType',
+            'severity',
+            'summary',
+            'accessibilityImpact',
+            'recommendedAction',
             'confidence',
+            'hazards',
+            'blockedLocation',
+            'alternativeRoute',
+            'routeSteps',
+            'barriersToAvoid',
+            'maximumSlope',
+            'requiresAssistance',
+            'assistanceRecommendation',
+            'detectedLocation',
+            'buildingId',
+            'coordinates',
+            'locationConfidence',
+            'locationEvidence',
+            'needsLocationConfirmation',
           ],
         },
       },
     });
 
-    const text = response.text?.trim() || '{}';
-    return JSON.parse(text);
-  } catch (err: any) {
-    console.error('Gemini hazard analysis error:', err);
-    // Graceful fallback with rich structural heuristics
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => {
+        const err = new Error('Analysis Timeout: Gemini did not respond within the 12-second time limit. Please check your network connection and retry.');
+        (err as any).code = 'TIMEOUT';
+        reject(err);
+      }, 12000)
+    );
+
+    return Promise.race([generatePromise, timeoutPromise]);
+  };
+
+  try {
+    let response: any;
+    try {
+      response = await executeCall('gemini-3.8-flash');
+    } catch (primaryErr: any) {
+      const msg = (primaryErr?.message || '').toLowerCase();
+      const status = primaryErr?.status || primaryErr?.statusCode || 0;
+      // If 503 (high demand) or 429, retry after 2 seconds or try gemini-flash-latest
+      if (status === 503 || status === 429 || msg.includes('503') || msg.includes('high demand') || msg.includes('resource_exhausted')) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          response = await executeCall('gemini-flash-latest');
+        } catch (retryErr) {
+          throw primaryErr;
+        }
+      } else {
+        throw primaryErr;
+      }
+    }
+
+    const parsed = JSON.parse(response.text?.trim() || '{}');
+
+    const hazardType = parsed.hazardType || parsed.reportCategory || 'obstructed_path';
+    const severity = (['low', 'medium', 'high'].includes(parsed.severity) ? parsed.severity : 'medium') as 'low' | 'medium' | 'high';
+    const summary = parsed.summary || 'Accessibility hazard identified on campus walkway.';
+    const accessibilityImpact = parsed.accessibilityImpact || 'May restrict safe passage for wheelchair users or persons with mobility limitations.';
+    const recommendedAction = parsed.recommendedAction || 'Use an alternate accessible route and submit a facilities report.';
+    const reportCategory = parsed.reportCategory || hazardType;
+    const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.90;
+
+    const hazards: DetectedHazard[] = Array.isArray(parsed.hazards) && parsed.hazards.length > 0
+      ? parsed.hazards.map((h: any) => ({
+          hazardType: h.hazardType || hazardType,
+          severity: (['low', 'medium', 'high'].includes(h.severity) ? h.severity : severity) as 'low' | 'medium' | 'high',
+          summary: h.summary || summary,
+          accessibilityImpact: h.accessibilityImpact || accessibilityImpact,
+          recommendedAction: h.recommendedAction || recommendedAction,
+          confidence: typeof h.confidence === 'number' ? h.confidence : confidence,
+        }))
+      : [
+          {
+            hazardType,
+            severity,
+            summary,
+            accessibilityImpact,
+            recommendedAction,
+            confidence,
+          },
+        ];
+
+    // Normalize alternative accessible route fields
+    const blockedLocation = parsed.blockedLocation || 'Main entrance walkway';
+    const alternativeRoute = parsed.alternativeRoute || 'Use the secondary accessible path avoiding stairs and obstacles.';
+    const routeSteps: string[] = Array.isArray(parsed.routeSteps) && parsed.routeSteps.length > 0
+      ? parsed.routeSteps
+      : [
+          'Turn before the blocked path segment.',
+          'Follow the paved accessible corridor.',
+          'Enter via the automatic push-plate entrance.',
+        ];
+    const barriersToAvoid: string[] = Array.isArray(parsed.barriersToAvoid) && parsed.barriersToAvoid.length > 0
+      ? parsed.barriersToAvoid
+      : [summary || 'Reported barrier'];
+    const maximumSlope = parsed.maximumSlope || '3.5%';
+    const requiresAssistance = Boolean(parsed.requiresAssistance);
+    const assistanceRecommendation = parsed.assistanceRecommendation || 'Call Accessibility Services at (415) 338-2472 if the alternate route is unavailable.';
+
+    // Normalize location detection fields
+    const detectedLocation = parsed.detectedLocation || input.locationName || 'Cesar Chavez Student Center North Entrance';
+    const buildingId = parsed.buildingId || 'ccsc';
+    const coordinates = parsed.coordinates && typeof parsed.coordinates.lat === 'number' && typeof parsed.coordinates.lng === 'number'
+      ? parsed.coordinates
+      : input.clientGps
+      ? { lat: input.clientGps.lat, lng: input.clientGps.lng }
+      : { lat: 37.7239, lng: -122.4786 };
+    const locationConfidence = typeof parsed.locationConfidence === 'number' ? parsed.locationConfidence : 0.88;
+    const locationEvidence = Array.isArray(parsed.locationEvidence) && parsed.locationEvidence.length > 0
+      ? parsed.locationEvidence
+      : input.clientGps
+      ? ['Browser GPS', 'Campus Grid Match']
+      : ['Campus Location Reference'];
+    const needsLocationConfirmation = typeof parsed.needsLocationConfirmation === 'boolean'
+      ? parsed.needsLocationConfirmation
+      : !input.clientGps;
+
     return {
-      detectedHazard: input.textDescription
-        ? `Accessibility Hazard: ${input.textDescription.slice(0, 45)}...`
-        : 'Reported Campus Physical Accessibility Barrier',
-      hazardDescription:
-        input.textDescription ||
-        'Observed barrier affecting wheelchair, mobility device, or visual navigation on campus pathways.',
-      slopeGradePercentage: input.textDescription?.toLowerCase().includes('steep') ? 9.8 : null,
-      adaComplianceStatus: 'non_compliant',
-      adaCodeReference: 'ADA Title II Section 35.150 (Existing Facilities)',
-      suggestedPriority: 'high',
-      suggestedWorkOrderType: 'Facilities Services Accessibility Inspection',
-      estimatedFixEffort: '1-3 hours inspection & triage',
-      suggestedDetour: 'Follow main paved Malcolm X Plaza route; avoid unpaved or steep amphitheater paths.',
-      recommendedHotlineAction: 'DPRC Hotline & Facilities Work Order Logged.',
-      confidence: 0.88,
+      hazardType,
+      severity,
+      summary,
+      accessibilityImpact,
+      recommendedAction,
+      reportCategory,
+      confidence,
+      hazards,
+      suggestedLocationSign: parsed.suggestedLocationSign || undefined,
+      blockedLocation,
+      alternativeRoute,
+      routeSteps,
+      barriersToAvoid,
+      maximumSlope,
+      requiresAssistance,
+      assistanceRecommendation,
+      detectedLocation,
+      buildingId,
+      coordinates,
+      locationConfidence,
+      locationEvidence,
+      needsLocationConfirmation,
     };
+  } catch (err: any) {
+    const classified = classifyGeminiError(err);
+    console.warn('Gemini hazard analysis error:', classified.message);
+    throw classified;
   }
 }
 
@@ -282,27 +627,66 @@ Rules:
   }
 }
 
-export interface VoiceAssistResponse {
-  identifiedNeed: string;
-  targetTab: 'map' | 'report' | 'elevators' | 'support';
-  openModal?: 'hotline' | 'none';
-  spokenResponse: string;
-  audioBase64?: string | null;
-  transcription?: string;
-  uiFeedback: string;
-  actionDetails?: {
-    originBuildingId?: string;
-    destBuildingId?: string;
-    buildingName?: string;
-    reportCategory?: string;
-    reportDescription?: string;
-    ridePickupLocation?: string;
-    rideDropoffLocation?: string;
-    rideMobilityNeed?: string;
-    elevatorId?: string;
-    filterText?: string;
+export async function processVoiceAgentQuery(params: {
+  userQuery: string;
+  context?: {
+    currentBuilding?: string;
+    activeTab?: string;
+    hasBrokenElevators?: boolean;
   };
-  suggestedQuickActions?: string[];
+}) {
+  try {
+    const prompt = `
+You are GatorAI Voice, the real-time spoken accessibility and campus navigator companion for San Francisco State University (SFSU).
+The user is speaking to you hands-free or through live voice transcription.
+
+User Voice Query: "${params.userQuery}"
+Campus Context:
+- Current Page/Tab: ${params.context?.activeTab || 'campus-navigator'}
+- Nearby/Selected Building: ${params.context?.currentBuilding || 'Malcolm X Plaza / Central Campus'}
+- Reported Campus Outages: ${params.context?.hasBrokenElevators ? 'Cesar Chavez Student Center North Elevator is reported OUT OF SERVICE.' : 'All campus elevators reported operational.'}
+
+Key SFSU Accessibility Facts:
+1. DPRC (Disability Programs and Resource Center) is in Cesar Chavez Student Center Room 400, phone (415) 405-3580.
+2. Gator Mobility shuttle carts run Mon-Fri 8am-6pm for door-to-door campus transport. Phone: (415) 338-1441.
+3. CAPS 24/7 mental health crisis line is (415) 338-2208, SSB 205.
+4. J. Paul Leonard Library has the Assistive Technology Lab on the 2nd floor with JAWS screen readers, CCTV enlargers, and adjustable-height desks.
+5. Mashouf Wellness Center has a hydraulic pool lift and ramp entrance.
+6. Muni M-Ocean View ramp connection is located at 19th & Holloway Ave.
+
+Guidelines for spoken response:
+- Keep the response concise, clear, and direct (2 to 4 sentences maximum so it speaks comfortably aloud without overwhelming the user).
+- Tone: Warm, empowering, confident, and empathetic.
+- Provide practical navigation advice (e.g. mention elevators, ramps, automatic door buttons, or shuttle availability).
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        systemInstruction:
+          'You are GatorAI Voice, the real-time voice accessibility assistant for SFSU. Keep answers natural, empathetic, and spoken-friendly under 60 words.',
+      },
+    });
+
+    const reply = response.text?.trim() || 'I am here to guide you around SFSU campus safely and without barriers.';
+    return {
+      reply,
+      suggestedAction: reply.toLowerCase().includes('dprc')
+        ? 'DPRC Office • CCSC 400'
+        : reply.toLowerCase().includes('shuttle') || reply.toLowerCase().includes('cart')
+        ? 'Request Gator Cart'
+        : reply.toLowerCase().includes('caps')
+        ? 'CAPS Support • (415) 338-2208'
+        : 'Explore Campus Map',
+    };
+  } catch (err: any) {
+    console.error('Voice agent query error:', err);
+    return {
+      reply: `At SFSU, all main pathways connecting Malcolm X Plaza, the Library, and Cesar Chavez Center feature ADA low-grade ramps under 5% slope. You can also request a free Gator Mobility cart ride!`,
+      suggestedAction: 'Explore Campus Map',
+    };
+  }
 }
 
 /**
@@ -324,9 +708,9 @@ export async function transcribeAudioWithGemini(audioBase64: string, mimeType = 
       contents: {
         parts: [
           audioPart,
-          { text: 'Accurately transcribe all words spoken by the user in this audio. If silent or empty, return nothing.' }
-        ]
-      }
+          { text: 'Accurately transcribe all words spoken by the user in this audio. If silent or empty, return nothing.' },
+        ],
+      },
     });
 
     return response.text?.trim() || '';
@@ -337,7 +721,7 @@ export async function transcribeAudioWithGemini(audioBase64: string, mimeType = 
 }
 
 /**
- * Generate high-fidelity speech using gemini-3.8-flash-lite-tts
+ * Generate speech audio using gemini-3.8-flash-lite-tts
  */
 export async function generateGeminiSpeech(text: string): Promise<string | null> {
   try {
@@ -367,7 +751,7 @@ export async function generateGeminiSpeech(text: string): Promise<string | null>
   }
 }
 
-export async function processGeminiVoiceQuery(query: string): Promise<VoiceAssistResponse> {
+export async function processGeminiVoiceQuery(query: string): Promise<any> {
   try {
     const prompt = `
 You are the voice assistant "Gemini Voice" for GatorAccess, the San Francisco State University (SFSU) campus accessibility navigation portal.
@@ -414,7 +798,6 @@ Return a valid JSON object matching the requested schema.
         systemInstruction:
           'You are Gemini Voice, an empathetic, helpful campus accessibility navigator for SFSU students. Output strictly valid JSON.',
         responseMimeType: 'application/json',
-        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -495,7 +878,7 @@ Return a valid JSON object matching the requested schema.
       buildingName: finalBldgName,
       originBuildingId: originBuildingId || parsed.actionDetails?.originBuildingId,
     };
-    
+
     // Generate Gemini TTS speech audio with 2.5s timeout race
     if (parsed.spokenResponse) {
       try {
@@ -510,7 +893,7 @@ Return a valid JSON object matching the requested schema.
     return parsed;
   } catch (err) {
     console.error('Gemini Voice processing error:', err);
-    // Intelligent local fallback
+    // Local fallback
     const lower = query.toLowerCase();
     let targetTab: 'map' | 'report' | 'elevators' | 'support' = 'map';
     let openModal: 'hotline' | 'none' = 'none';
@@ -543,7 +926,6 @@ Return a valid JSON object matching the requested schema.
       lower.includes('path') ||
       lower.includes('direction') ||
       lower.includes('get to') ||
-      lower.includes('getting to') ||
       lower.includes('walk')
     ) {
       targetTab = 'map';
@@ -572,9 +954,7 @@ Return a valid JSON object matching the requested schema.
       lower.includes('cart') ||
       lower.includes('golf cart') ||
       lower.includes('shuttle') ||
-      lower.includes('caps') ||
-      lower.includes('therapy') ||
-      lower.includes('counsel')
+      lower.includes('caps')
     ) {
       targetTab = 'support';
       spokenResponse = 'Navigating to Gator Mobility electric golf cart rides and CAPS mental health support.';

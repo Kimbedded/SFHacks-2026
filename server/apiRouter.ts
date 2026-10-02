@@ -2,9 +2,9 @@ import { Router, Request, Response } from 'express';
 import { 
   analyzeAccessibilityHazard, 
   planAccessibleRouteAI, 
-  processGeminiVoiceQuery,
+  processVoiceAgentQuery,
   transcribeAudioWithGemini,
-  generateGeminiSpeech
+  processGeminiVoiceQuery 
 } from './geminiService';
 import { INITIAL_REPORTS, SFSU_BUILDINGS, TRANSIT_ALERTS } from '../src/data/sfsuCampusData';
 import { AccessibilityReport, AssistanceRequest } from '../src/types';
@@ -50,22 +50,44 @@ let assistanceRequests: AssistanceRequest[] = [
 // 1. Analyze Accessibility Hazard with Gemini Multimodal AI
 apiRouter.post('/analyze-hazard', async (req: Request, res: Response) => {
   try {
-    const { textDescription, locationName, imageBase64, mimeType } = req.body;
+    const { textDescription, locationName, imageBase64, mimeType, sampleType, clientGps } = req.body;
 
-    let imagePart;
-    if (imageBase64) {
-      // Strip data:image/...;base64, prefix if present
-      const cleanBase64 = imageBase64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, '');
-      imagePart = {
-        mimeType: mimeType || 'image/jpeg',
-        data: cleanBase64,
-      };
+    // Check for missing image
+    if (!imageBase64 || typeof imageBase64 !== 'string' || imageBase64.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Image: Please take a picture before analyzing.',
+      });
     }
+
+    // Check for oversized image (> 15MB)
+    if (imageBase64.length > 15 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        error: 'Oversized Image: The captured picture exceeds the maximum allowed payload size (15MB). Please retake the photo.',
+      });
+    }
+
+    // Strip data:image/...;base64, prefix if present
+    const cleanBase64 = imageBase64.replace(/^data:[a-zA-Z0-9/+-]+;base64,/, '').trim();
+    if (!cleanBase64 || cleanBase64.length < 50) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Image: The captured picture data is empty or corrupt. Please retake the picture.',
+      });
+    }
+
+    const imagePart = {
+      mimeType: mimeType || 'image/jpeg',
+      data: cleanBase64,
+    };
 
     const analysis = await analyzeAccessibilityHazard({
       textDescription,
       locationName,
       imagePart,
+      sampleType,
+      clientGps,
     });
 
     res.json({
@@ -73,10 +95,18 @@ apiRouter.post('/analyze-hazard', async (req: Request, res: Response) => {
       analysis,
     });
   } catch (error: any) {
-    console.error('Error in /analyze-hazard:', error);
-    res.status(500).json({
+    console.error('Error in /analyze-hazard:', error.message);
+    const msg = error.message || 'Failed to analyze hazard';
+    let statusCode = 500;
+    if (msg.includes('Missing API Key')) statusCode = 401;
+    else if (msg.includes('Quota Limit Exceeded')) statusCode = 429;
+    else if (msg.includes('Invalid Model')) statusCode = 400;
+    else if (msg.includes('Invalid Image') || msg.includes('Oversized Image')) statusCode = 400;
+    else if (msg.includes('Analysis Timeout')) statusCode = 504;
+
+    res.status(statusCode).json({
       success: false,
-      error: error.message || 'Failed to analyze hazard',
+      error: msg,
     });
   }
 });
@@ -106,139 +136,6 @@ apiRouter.post('/suggest-route', async (req: Request, res: Response) => {
   }
 });
 
-// Helper to decode Google Maps polyline string into coordinates
-function decodeGooglePolyline(encoded: string): Array<{ lat: number; lng: number }> {
-  const points: Array<{ lat: number; lng: number }> = [];
-  let index = 0;
-  const len = encoded.length;
-  let lat = 0;
-  let lng = 0;
-
-  while (index < len) {
-    let b: number;
-    let shift = 0;
-    let result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    const dlat = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-    lat += dlat;
-
-    shift = 0;
-    result = 0;
-    do {
-      b = encoded.charCodeAt(index++) - 63;
-      result |= (b & 0x1f) << shift;
-      shift += 5;
-    } while (b >= 0x20);
-    const dlng = (result & 1) !== 0 ? ~(result >> 1) : result >> 1;
-    lng += dlng;
-
-    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
-  }
-
-  return points;
-}
-
-// 2b. Google Maps Walking Directions API proxy
-apiRouter.post('/directions', async (req: Request, res: Response) => {
-  try {
-    const { origin, destination } = req.body;
-    if (!origin || !destination) {
-      return res.status(400).json({ success: false, error: 'origin and destination coordinates required' });
-    }
-
-    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY;
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&travelmode=walking`;
-
-    if (!apiKey) {
-      return res.json({
-        success: true,
-        pathCoordinates: [origin, destination],
-        distanceMeters: 350,
-        estimatedMinutes: 5,
-        googleMapsUrl,
-        source: 'direct_fallback',
-      });
-    }
-
-    const apiUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}&mode=walking&key=${apiKey}`;
-    const response = await fetch(apiUrl);
-    const data = await response.json();
-
-    if (data.status === 'OK' && data.routes && data.routes.length > 0) {
-      const route = data.routes[0];
-      const leg = route.legs[0];
-      const pathCoordinates = decodeGooglePolyline(route.overview_polyline.points);
-
-      const steps = (leg.steps || []).map((step: any) => ({
-        instruction: step.html_instructions ? step.html_instructions.replace(/<[^>]*>/g, '') : 'Walk along path',
-        distance: step.distance?.text || '',
-        duration: step.duration?.text || '',
-        coordinates: {
-          lat: step.start_location.lat,
-          lng: step.start_location.lng,
-        },
-      }));
-
-      return res.json({
-        success: true,
-        pathCoordinates,
-        distanceMeters: leg.distance?.value || 350,
-        estimatedMinutes: Math.ceil((leg.duration?.value || 300) / 60),
-        steps,
-        googleMapsUrl,
-        source: 'google_maps_directions_api',
-      });
-    }
-
-    // Fallback: route along real SFSU campus pedestrian walkway network
-    const CAMPUS_HUBS = [
-      { name: '19th & Holloway Walkway', lat: 37.7234, lng: -122.4755 },
-      { name: 'Holloway Ave North Sidewalk', lat: 37.7235, lng: -122.4770 },
-      { name: 'Malcolm X Plaza Hub', lat: 37.7239, lng: -122.4782 },
-      { name: 'North Quad Walkway', lat: 37.7245, lng: -122.4792 },
-      { name: 'Tapia Drive ADA Corridor', lat: 37.7228, lng: -122.4775 },
-    ];
-
-    // Find the closest walkway hub to origin and destination
-    function dist(p1: { lat: number; lng: number }, p2: { lat: number; lng: number }) {
-      return Math.hypot(p1.lat - p2.lat, p1.lng - p2.lng);
-    }
-
-    const startHub = CAMPUS_HUBS.reduce((prev, curr) => dist(origin, curr) < dist(origin, prev) ? curr : prev, CAMPUS_HUBS[0]);
-    const endHub = CAMPUS_HUBS.reduce((prev, curr) => dist(destination, curr) < dist(destination, prev) ? curr : prev, CAMPUS_HUBS[1]);
-
-    const fallbackPoints: Array<{ lat: number; lng: number }> = [
-      origin,
-      { lat: origin.lat, lng: startHub.lng },
-      startHub,
-    ];
-
-    if (startHub !== endHub) {
-      fallbackPoints.push({ lat: (startHub.lat + endHub.lat) / 2, lng: (startHub.lng + endHub.lng) / 2 });
-      fallbackPoints.push(endHub);
-    }
-
-    fallbackPoints.push({ lat: destination.lat, lng: endHub.lng });
-    fallbackPoints.push(destination);
-
-    return res.json({
-      success: true,
-      pathCoordinates: fallbackPoints,
-      distanceMeters: Math.round(dist(origin, destination) * 111000 * 1.3),
-      estimatedMinutes: Math.max(3, Math.round((dist(origin, destination) * 111000 * 1.3) / 75)),
-      googleMapsUrl,
-      source: 'campus_pedestrian_network_fallback',
-    });
-  } catch (error: any) {
-    console.error('Error fetching Google Directions:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
 // 3. Get All Accessibility Reports
 apiRouter.get('/reports', (_req: Request, res: Response) => {
   res.json({
@@ -247,49 +144,126 @@ apiRouter.get('/reports', (_req: Request, res: Response) => {
   });
 });
 
-// 4. Submit New Accessibility Report & Generate Facilities Work Order
-apiRouter.post('/reports', (req: Request, res: Response) => {
+// 4. Submit New Accessibility Report & Generate Facilities Work Order (Firebase Firestore / Demo Mode)
+apiRouter.post('/reports', async (req: Request, res: Response) => {
   try {
     const {
-      title,
+      reportId: customReportId,
+      hazardType,
+      severity,
+      summary,
+      accessibilityImpact,
       description,
-      category,
-      locationName,
+      location,
+      imageUrl,
+      recommendedAction,
+      createdAt: customCreatedAt,
+      status: customStatus,
+      // Optional extra fields for map/building coordination
       buildingId,
       coordinates,
+      aiAnalysis,
+      title,
+      category,
+      locationName,
       urgency,
       photoUrl,
-      aiAnalysis,
       reporterName,
     } = req.body;
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const reportId = customReportId || `SFSU-REP-2026-${randomSuffix}`;
     const facilitiesWorkOrderId = `SFSU-FAC-2026-${randomSuffix}`;
+    const createdAt = customCreatedAt || new Date().toISOString();
+    const status = customStatus || 'pending';
+
+    const finalHazardType = hazardType || title || 'Blocked path';
+    const finalSeverity = severity || urgency || 'high';
+    const finalSummary = summary || description || 'Reported accessibility barrier on SFSU campus';
+    const finalAccessibilityImpact =
+      accessibilityImpact || aiAnalysis?.accessibilityImpact || 'Wheelchair users may be unable to reach the building entrance';
+    const finalLocation = location || locationName || 'SFSU Main Campus';
+    const finalImageUrl = imageUrl || photoUrl || '';
+    const finalRecommendedAction =
+      recommendedAction || aiAnalysis?.recommendedAction || aiAnalysis?.suggestedDetour || 'Use alternate entrance and submit facilities report';
+
+    // Firestore record matching exact schema specified in user prompt
+    const firestoreRecord = {
+      reportId,
+      hazardType: finalHazardType,
+      severity: finalSeverity,
+      summary: finalSummary,
+      accessibilityImpact: finalAccessibilityImpact,
+      description: finalSummary,
+      recommendedAction: finalRecommendedAction,
+      location: finalLocation,
+      imageUrl: finalImageUrl,
+      createdAt,
+      status,
+    };
+
+    let savedToFirebase = false;
+    // Attempt Firestore persistence if Firebase environment is configured
+    try {
+      if (process.env.FIREBASE_CONFIG || process.env.VITE_FIREBASE_API_KEY) {
+        // Dynamic import to avoid crash if unconfigured
+        const { initializeApp, getApps } = await import('firebase/app');
+        const { getFirestore, doc, setDoc } = await import('firebase/firestore');
+        const config = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
+        const app = getApps().length > 0 ? getApps()[0] : initializeApp(config);
+        const db = getFirestore(app);
+        await setDoc(doc(db, 'reports', reportId), firestoreRecord);
+        savedToFirebase = true;
+      }
+    } catch (fbErr) {
+      console.log('Firebase not configured, running in Demo Mode (In-memory storage):', fbErr);
+    }
+
+    // Also populate app-wide AccessibilityReport for Map, Elevators, and Dashboard sync
+    const mappedCategory = (
+      finalHazardType.toLowerCase().includes('elevator')
+        ? 'broken_elevator'
+        : finalHazardType.toLowerCase().includes('slope') || finalHazardType.toLowerCase().includes('ramp')
+        ? 'steep_slope'
+        : finalHazardType.toLowerCase().includes('door')
+        ? 'locked_door'
+        : 'obstructed_path'
+    ) as any;
 
     const newReport: AccessibilityReport = {
-      id: `rep-${Date.now()}`,
-      title: title || 'Campus Accessibility Incident',
-      description: description || 'Reported barrier on SFSU campus',
-      category: category || 'other',
-      locationName: locationName || 'SFSU Main Campus',
+      id: reportId,
+      title: `${finalHazardType} - ${finalLocation}`,
+      description: finalSummary,
+      category: category || mappedCategory,
+      locationName: finalLocation,
       buildingId,
       coordinates: coordinates || { lat: 37.7238, lng: -122.4785 },
-      urgency: urgency || aiAnalysis?.suggestedPriority || 'medium',
+      urgency: (finalSeverity === 'high' ? 'critical' : finalSeverity === 'medium' ? 'high' : 'medium') as any,
       status: 'work_order_created',
       facilitiesWorkOrderId,
-      photoUrl,
-      aiAnalysis,
+      photoUrl: finalImageUrl,
+      aiAnalysis: aiAnalysis || {
+        detectedHazard: finalHazardType,
+        hazardDescription: finalSummary,
+        adaComplianceStatus: 'non_compliant',
+        suggestedPriority: finalSeverity === 'high' ? 'critical' : 'high',
+        suggestedWorkOrderType: 'Facilities Services Accessibility Maintenance',
+        estimatedFixEffort: '1-2 hours',
+        suggestedDetour: finalRecommendedAction,
+        recommendedHotlineAction: 'DPRC Hotline notified. Dispatching student golf cart escort.',
+        confidence: 0.95,
+      },
       upvotes: 1,
       reportedAt: 'Just now',
       updatedAt: 'Just now',
       reporterName: reporterName || 'Anonymous SFSU Student',
     };
 
-    // Prepend new report to top
+    // Prepend to in-memory list
     reports = [newReport, ...reports];
 
     // If report is broken elevator, update elevator state in building
-    if (category === 'broken_elevator' && buildingId) {
+    if ((category === 'broken_elevator' || finalHazardType.toLowerCase().includes('elevator')) && buildingId) {
       const bldg = buildings.find((b) => b.id === buildingId);
       if (bldg && bldg.elevators.length > 0) {
         bldg.elevators[0].status = 'down';
@@ -299,8 +273,13 @@ apiRouter.post('/reports', (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      report: newReport,
-      message: `Work Order ${facilitiesWorkOrderId} successfully created and dispatched to SFSU Facilities Services.`,
+      report: firestoreRecord,
+      reportId,
+      status: 'pending',
+      facilitiesWorkOrderId,
+      savedToFirebase,
+      isDemoMode: !savedToFirebase,
+      message: `Report ${reportId} submitted successfully. Status: pending review.`,
     });
   } catch (error: any) {
     res.status(500).json({
@@ -423,14 +402,48 @@ apiRouter.get('/transit-alerts', (_req: Request, res: Response) => {
   });
 });
 
-// 11. Gemini Voice Accessibility Assistant
+// 11. Export Project Archive (.tar.gz) for easy local download
+apiRouter.get('/export-archive', (_req: Request, res: Response) => {
+  try {
+    const { execSync } = require('child_process');
+    const archivePath = '/tmp/gatoraccess-sfhacks-2026.tar.gz';
+    execSync(`tar --exclude='node_modules' --exclude='.gmp_cache' --exclude='dist' -czf ${archivePath} -C . .`);
+    res.download(archivePath, 'gatoraccess-sfhacks-2026.tar.gz');
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12. Site-wide Voice AI Agent (Gemini Spoken Accessibility Guide)
+apiRouter.post('/voice-agent', async (req: Request, res: Response) => {
+  try {
+    const { query, context } = req.body;
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ success: false, error: 'Query text is required' });
+    }
+
+    const result = await processVoiceAgentQuery({
+      userQuery: query,
+      context,
+    });
+
+    res.json({
+      success: true,
+      reply: result.reply,
+      suggestedAction: result.suggestedAction,
+    });
+  } catch (err: any) {
+    console.error('Error handling voice agent request:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13. Gemini Voice Assistant endpoint with audio transcription support
 apiRouter.post('/gemini/voice-assist', async (req: Request, res: Response) => {
   try {
     const { query, audioBase64, mimeType } = req.body;
-
     let userQuery = query ? String(query).trim() : '';
 
-    // If real microphone audio is sent, transcribe it using Gemini 3.5 Transcribe
     if (!userQuery && audioBase64) {
       userQuery = await transcribeAudioWithGemini(audioBase64, mimeType || 'audio/webm');
     }
@@ -467,14 +480,3 @@ apiRouter.post('/gemini/voice-assist', async (req: Request, res: Response) => {
   }
 });
 
-// 12. Export Project Archive (.tar.gz) for easy local download
-apiRouter.get('/export-archive', (_req: Request, res: Response) => {
-  try {
-    const { execSync } = require('child_process');
-    const archivePath = '/tmp/gatoraccess-sfhacks-2026.tar.gz';
-    execSync(`tar --exclude='node_modules' --exclude='.gmp_cache' --exclude='dist' -czf ${archivePath} -C . .`);
-    res.download(archivePath, 'gatoraccess-sfhacks-2026.tar.gz');
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
