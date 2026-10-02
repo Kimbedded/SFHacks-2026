@@ -94,7 +94,7 @@ export function UnifiedRouteModal({
       .map((s, idx) => `Waypoint ${idx + 1}: ${s.instruction}. ${s.accessibilityNotes}.`)
       .join(' ');
 
-    const textToRead = `${title}. From ${originName} to ${destinationName}. Distance: ${activeRoute.distanceMeters} meters, approximately ${activeRoute.estimatedMinutes} minutes walk. Verified zero-stair corridor. ${waypointSteps}`;
+    const textToRead = `${title}. From ${originName} to ${destinationName}. Distance: ${activeRoute.distanceMeters} meters, approximately ${activeRoute.estimatedMinutes} minutes walk. ${activeRoute.isFullyADACompliant ? 'Verified zero-stair corridor.' : 'Check accessibility conditions along the walking route.'} ${waypointSteps}`;
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
     utterance.rate = 0.95;
@@ -297,10 +297,6 @@ export function UnifiedRouteModal({
                         }`}
                       >
                         {isFirst ? '1 • Departure' : isLast ? `${idx + 1} • Arrival` : `Waypoint ${idx + 1}`}
-                      </span>
-
-                      <span className="text-[10px] font-mono text-purple-300">
-                        GPS: {step.coordinates.lat.toFixed(4)}, {step.coordinates.lng.toFixed(4)}
                       </span>
                     </div>
 

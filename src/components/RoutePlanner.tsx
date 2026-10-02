@@ -8,6 +8,9 @@ import {
 } from '../data/sfsuCampusData';
 import {
   FaWheelchair,
+  FaWheelchairMove,
+  FaPersonWalkingWithCane,
+  FaEyeLowVision,
   FaSquareParking,
   FaElevator,
   FaRoute,
@@ -155,6 +158,7 @@ export function RoutePlanner({
   // Audio Guidance
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
+  const routeRequestId = useRef(0);
   const [showFaqGuide, setShowFaqGuide] = useState(false);
 
   // Request GPS: If successful, use current location; if cannot acquire, fallback to Student Life Events Center / Annex I
@@ -169,7 +173,7 @@ export function RoutePlanner({
             id: 'origin-current',
             name: 'Current Location',
             shortName: 'Current Location',
-            address: `GPS: ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`,
+            address: 'Your location',
             coordinates: coords,
             icon: '📍',
           };
@@ -208,7 +212,7 @@ export function RoutePlanner({
         handleSelectCorridor(match, false);
       }
     }
-  }, [destBuilding]);
+  }, [destBuilding, selectedOrigin]);
 
   // Filter corridors based on search
   const filteredCorridors = SFSU_ACCESSIBLE_CORRIDORS.filter((corridor) => {
@@ -261,6 +265,7 @@ export function RoutePlanner({
     openModal = false,
     smoothScroll = true
   ) => {
+    const requestId = ++routeRequestId.current;
     setSelectedCorridor(corridor);
     setViewMode('corridor_active');
     setIsLoadingRoute(true);
@@ -273,7 +278,10 @@ export function RoutePlanner({
 
     const startCoord = selectedOrigin.coordinates;
     const endCoord = corridor.destinationCoords;
-    const originLabel = `${selectedOrigin.shortName} (${selectedOrigin.address})`;
+    const originLabel =
+      selectedOrigin.id === 'origin-current'
+        ? selectedOrigin.shortName
+        : `${selectedOrigin.shortName} (${selectedOrigin.address})`;
     const destLabel = `${corridor.destinationName} (${corridor.destinationAddress})`;
 
     // Check elevator outages
@@ -295,14 +303,33 @@ export function RoutePlanner({
           ? googleDirections.pathCoordinates
           : corridor.pathCoordinates;
 
-      // Construct turn-by-turn steps
-      const steps = corridor.waypoints.map((wp) => ({
-        instruction: wp.instruction,
-        accessibilityNotes: wp.accessibilityNotes,
-        isElevatorNeeded: Boolean(wp.isElevatorNeeded),
-        isRamp: Boolean(wp.isRamp),
-        coordinates: wp.coordinates,
+      // Keep instructions and markers tied to the same recalculated route.
+      const liveSteps = googleDirections?.source !== 'fallback'
+        ? googleDirections?.steps.filter((step) => step.coordinates && Number.isFinite(step.coordinates.lat) && Number.isFinite(step.coordinates.lng)) || []
+        : [];
+      const steps: AccessibleRouteOption['steps'] = liveSteps.map((step) => ({
+        instruction: step.instruction,
+        accessibilityNotes: 'Check local access conditions along this walking route.',
+        isElevatorNeeded: false,
+        isRamp: false,
+        coordinates: step.coordinates!,
       }));
+      if (steps.length === 0) {
+        steps.push({
+          instruction: `Start at ${selectedOrigin.shortName}`,
+          accessibilityNotes: 'Turn-by-turn directions are unavailable. Open Google Maps for navigation.',
+          isElevatorNeeded: false,
+          isRamp: false,
+          coordinates: startCoord,
+        });
+      }
+      steps.push({
+        instruction: `Arrive at ${corridor.destinationName}`,
+        accessibilityNotes: corridor.waypoints.at(-1)?.accessibilityNotes || 'Check the accessible entrance on arrival.',
+        isElevatorNeeded: false,
+        isRamp: false,
+        coordinates: pathCoordinates.at(-1) || endCoord,
+      });
 
       const fallbackMapsUrl = getGoogleMapsExternalUrl(
         startCoord,
@@ -319,13 +346,14 @@ export function RoutePlanner({
         estimatedMinutes: googleDirections?.estimatedMinutes || corridor.estimatedMinutes,
         maxSlopeGrade: corridor.maxSlopeGrade,
         elevationGainMeters: 3.2,
-        isFullyADACompliant: true,
+        isFullyADACompliant: false,
         warningNotice: hasElevatorOutage ? corridor.elevatorDownWarning : undefined,
         pathCoordinates,
         googleMapsUrl: googleDirections?.googleMapsUrl || fallbackMapsUrl,
         steps,
       };
 
+      if (requestId !== routeRequestId.current) return;
       setActiveRoute(routeOption);
       if (onSelectWaypoint) {
         onSelectWaypoint(0);
@@ -346,7 +374,7 @@ export function RoutePlanner({
     } catch (err) {
       console.warn('Error loading corridor walking route:', err);
     } finally {
-      setIsLoadingRoute(false);
+      if (requestId === routeRequestId.current) setIsLoadingRoute(false);
     }
   };
 
@@ -365,7 +393,7 @@ export function RoutePlanner({
       .map((s, idx) => `Waypoint ${idx + 1}: ${s.instruction}. ${s.accessibilityNotes}.`)
       .join(' ');
 
-    const textToRead = `${corridorName}. Distance: ${activeRoute.distanceMeters} meters, approximately ${activeRoute.estimatedMinutes} minutes walk. Verified zero-stair corridor. ${waypointSteps}`;
+    const textToRead = `${corridorName}. Distance: ${activeRoute.distanceMeters} meters, approximately ${activeRoute.estimatedMinutes} minutes walk. Check accessibility conditions along the walking route. ${waypointSteps}`;
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
     utterance.rate = 0.95;
@@ -392,18 +420,6 @@ export function RoutePlanner({
           </div>
 
           <div className="flex items-center gap-2 shrink-0 ml-auto">
-            <label htmlFor="mobility-profile" className="text-xs font-semibold text-slate-500 whitespace-nowrap">Mobility profile</label>
-            <select
-              id="mobility-profile"
-              value={mobilityProfile}
-              onChange={(e) => setMobilityProfile(e.target.value)}
-              className="w-40 sm:w-48 text-xs font-semibold text-purple-900 bg-purple-50 border border-purple-200 rounded-xl px-2.5 py-2"
-            >
-              <option value="Power Wheelchair">Power wheelchair · Grade &lt; 5%</option>
-              <option value="Manual Wheelchair">Manual wheelchair · Shallow slopes</option>
-              <option value="Walker / Cane">Walker / cane · Rest benches</option>
-              <option value="Visual / Tactile">Low vision · Tactile paths</option>
-            </select>
             <button
               onClick={() => setShowFaqGuide(!showFaqGuide)}
               aria-expanded={showFaqGuide}
@@ -422,6 +438,35 @@ export function RoutePlanner({
               <span>Gator Cart</span>
             </button>
           </div>
+        </div>
+
+        {/* Mobility profile selector */}
+        <div role="radiogroup" aria-label="Mobility profile" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {([
+            { value: 'Power Wheelchair', label: 'Power chair', icon: FaWheelchair },
+            { value: 'Manual Wheelchair', label: 'Manual chair', icon: FaWheelchairMove },
+            { value: 'Walker / Cane', label: 'Walker / cane', icon: FaPersonWalkingWithCane },
+            { value: 'Visual / Tactile', label: 'Low vision', icon: FaEyeLowVision },
+          ] as const).map(({ value, label, icon: Icon }) => {
+            const selected = mobilityProfile === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setMobilityProfile(value)}
+                className={`min-h-11 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-bold transition-colors cursor-pointer ${
+                  selected
+                    ? 'bg-purple-900 border-purple-900 text-white'
+                    : 'bg-white border-slate-200 text-slate-700 hover:border-purple-300 hover:bg-purple-50'
+                }`}
+              >
+                <Icon className={`w-4 h-4 shrink-0 ${selected ? 'text-amber-300' : 'text-purple-700'}`} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Alternative starting points stay collapsed until requested. */}
@@ -642,153 +687,129 @@ export function RoutePlanner({
       {/* ========================================================================= */}
       {viewMode === 'corridor_active' && activeRoute && (
         <div className="min-w-0 md:max-h-[650px] md:overflow-y-auto bg-white rounded-2xl shadow-md border-2 border-purple-400 p-4 sm:p-5 space-y-4 animate-fadeIn">
-          {/* Top Bar with Return button & Corridor Title */}
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-3 border-b border-purple-100">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setViewMode('carousel')}
-                  className="px-2.5 py-1 bg-purple-100 hover:bg-purple-200 text-purple-950 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Return to Corridors Carousel"
-                >
-                  <FaArrowLeft className="w-3 h-3" />
-                  <span>All Corridors</span>
-                </button>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 font-bold text-[10px] uppercase">
-                  Active Zero-Stair Corridor
-                </span>
+          {/* Header: back, title, route summary, quick actions */}
+          <div className="space-y-4 pb-5 border-b border-purple-100">
+            <button
+              onClick={() => setViewMode('carousel')}
+              className="px-4 py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-950 font-bold text-sm rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+              title="Return to Corridors Carousel"
+            >
+              <FaArrowLeft className="w-4 h-4" />
+              <span>Back to All Corridors</span>
+            </button>
+
+            <h4 className="font-black text-xl text-purple-950 leading-tight">
+              {activeRoute.title}
+            </h4>
+
+            {/* Route summary */}
+            <div className="rounded-xl border border-slate-200 bg-slate-50 divide-y divide-slate-200">
+              <div className="flex items-start gap-3 p-3">
+                <FaLocationDot className="w-4 h-4 mt-0.5 text-emerald-600 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wide text-slate-500">From</div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {selectedOrigin.id === 'origin-current'
+                      ? selectedOrigin.shortName
+                      : `${selectedOrigin.shortName} (${selectedOrigin.address})`}
+                  </div>
+                </div>
               </div>
-
-              <h4 className="font-black text-base sm:text-lg text-purple-950 leading-tight">
-                {activeRoute.title}
-              </h4>
-
-              {/* Simple Address Navigation Display */}
-              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                <span className="font-bold text-slate-800">From:</span>
-                <span className="bg-slate-100 px-2 py-0.5 rounded font-mono text-[11px] text-slate-700">
-                  {selectedOrigin.shortName} ({selectedOrigin.address})
-                </span>
-                <span className="text-purple-700 font-bold">➔</span>
-                <span className="font-bold text-slate-800">To:</span>
-                <span className="bg-purple-50 text-purple-900 border border-purple-200 px-2 py-0.5 rounded font-mono text-[11px] font-bold">
-                  {selectedCorridor?.destinationName || destBuilding?.name} ({selectedCorridor?.destinationAddress || destBuilding?.address || 'SFSU Campus'})
-                </span>
+              <div className="flex items-start gap-3 p-3">
+                <FaLocationDot className="w-4 h-4 mt-0.5 text-purple-700 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wide text-slate-500">To</div>
+                  <div className="text-sm font-semibold text-slate-900">
+                    {selectedCorridor?.destinationName || destBuilding?.name} ({selectedCorridor?.destinationAddress || destBuilding?.address || 'SFSU Campus'})
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Quick Action Buttons: Google Maps, Read Aloud, Request Ride */}
-            <div className="flex flex-wrap items-center gap-2">
-              {activeRoute.googleMapsUrl && (
+            {/* Quick actions: one framed bar */}
+            <div className="grid grid-cols-3 divide-x divide-purple-200 rounded-xl border border-purple-200 bg-purple-50/50 overflow-hidden">
+              <button
+                onClick={onRequestRide}
+                className="flex flex-col items-center justify-center gap-1.5 px-2 py-3 text-purple-950 hover:bg-amber-100 transition-colors cursor-pointer"
+                title="Request Gator Cart electric golf shuttle"
+              >
+                <FaCar className="w-5 h-5 text-amber-600" />
+                <span className="text-xs font-bold">Gator Cart</span>
+              </button>
+
+              <button
+                onClick={speakInstructions}
+                className={`flex flex-col items-center justify-center gap-1.5 px-2 py-3 transition-colors cursor-pointer ${
+                  isSpeaking ? 'bg-rose-600 text-white' : 'text-purple-950 hover:bg-purple-100'
+                }`}
+                title="Read turn-by-turn accessible guidance aloud"
+              >
+                <FaVolumeHigh className={`w-5 h-5 ${isSpeaking ? 'text-white' : 'text-purple-700'}`} />
+                <span className="text-xs font-bold">{isSpeaking ? 'Stop Voice' : 'Read Aloud'}</span>
+              </button>
+
+              {activeRoute.googleMapsUrl ? (
                 <a
                   href={activeRoute.googleMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
+                  className="flex flex-col items-center justify-center gap-1.5 px-2 py-3 text-purple-950 hover:bg-blue-100 transition-colors"
                   title="Open genuine pedestrian route in Google Maps app"
                 >
-                  <FaArrowUpRightFromSquare className="w-3.5 h-3.5" />
-                  <span>Open in Google Maps</span>
+                  <FaArrowUpRightFromSquare className="w-5 h-5 text-blue-600" />
+                  <span className="text-xs font-bold">Google Maps</span>
                 </a>
+              ) : (
+                <div />
               )}
-
-              <button
-                onClick={speakInstructions}
-                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors flex items-center gap-1.5 ${
-                  isSpeaking
-                    ? 'bg-rose-600 text-white border-rose-700'
-                    : 'bg-white hover:bg-purple-100 text-purple-900 border-purple-200 shadow-2xs'
-                }`}
-                title="Read turn-by-turn accessible guidance aloud"
-              >
-                <FaVolumeHigh className="w-3.5 h-3.5" />
-                <span>{isSpeaking ? 'Stop Voice' : 'Read Aloud'}</span>
-              </button>
-
-              <button
-                onClick={onRequestRide}
-                className="px-3 py-2 bg-amber-400 hover:bg-amber-300 text-purple-950 font-bold text-xs rounded-xl shadow-sm transition-transform active:scale-95 flex items-center gap-1.5"
-                title="Request Gator Cart electric golf shuttle"
-              >
-                <FaCar className="w-3.5 h-3.5" />
-                <span>Gator Cart</span>
-              </button>
-
             </div>
           </div>
 
           {/* Elevator Down Warning Notice */}
           {activeRoute.warningNotice && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs font-semibold flex items-start gap-2.5">
-              <FaTriangleExclamation className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-sm font-semibold flex items-start gap-3">
+              <FaTriangleExclamation className="w-4 h-4 mt-0.5 text-rose-600 shrink-0" />
               <div>{activeRoute.warningNotice}</div>
             </div>
           )}
 
-          {/* Corridor Waypoints Carousel Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-purple-800 text-white flex items-center justify-center font-bold text-xs">
-                <FaCompass className="w-3.5 h-3.5" />
+          {/* Turn-by-turn header */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-xl bg-purple-800 text-white flex items-center justify-center shrink-0">
+                <FaCompass className="w-4 h-4" />
               </span>
               <div>
-                <h5 className="font-extrabold text-sm text-slate-900">
+                <h5 className="font-extrabold text-base text-slate-900 leading-tight">
                   Turn-by-turn directions
                 </h5>
-                <p className="text-[11px] text-slate-500">
-                  Waypoint {(selectedWaypointIndex ?? 0) + 1} of {activeRoute.steps.length} • Select a step to highlight it on the map
+                <p className="text-xs text-slate-500">
+                  Step {(selectedWaypointIndex ?? 0) + 1} of {activeRoute.steps.length}
                 </p>
               </div>
             </div>
 
-            {/* Next / Prev Waypoint Buttons */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => scrollWaypointCarousel('left')}
-                className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-purple-100 text-slate-700 text-xs font-bold flex items-center gap-1 border border-slate-200 cursor-pointer shadow-2xs"
+                className="h-9 px-3 rounded-xl bg-slate-100 hover:bg-purple-100 text-slate-800 text-sm font-bold flex items-center gap-2 border border-slate-200 cursor-pointer"
                 title="Previous waypoint"
               >
-                <FaChevronLeft className="w-3 h-3" />
+                <FaChevronLeft className="w-4 h-4" />
                 <span>Prev</span>
               </button>
               <button
                 onClick={() => scrollWaypointCarousel('right')}
-                className="px-2.5 py-1 rounded-lg bg-purple-900 hover:bg-purple-800 text-white text-xs font-bold flex items-center gap-1 shadow-sm cursor-pointer"
+                className="h-9 px-3 rounded-xl bg-purple-900 hover:bg-purple-800 text-white text-sm font-bold flex items-center gap-2 cursor-pointer"
                 title="Next waypoint"
               >
                 <span>Next</span>
-                <FaChevronRight className="w-3 h-3" />
+                <FaChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Waypoint Stepper Progress Tracker */}
-          <div className="flex items-center gap-1.5 overflow-x-auto py-1 no-scrollbar">
-            {activeRoute.steps.map((step, idx) => {
-              const isSelected = selectedWaypointIndex === idx;
-              const isFirst = idx === 0;
-              const isLast = idx === activeRoute.steps.length - 1;
-
-              return (
-                <button
-                  key={`step-dot-${idx}`}
-                  onClick={() => onSelectWaypoint && onSelectWaypoint(idx)}
-                  className={`px-3 py-1 rounded-xl text-xs font-extrabold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-purple-900 text-amber-300 ring-2 ring-amber-400 shadow-md scale-105'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">
-                    {idx + 1}
-                  </span>
-                  <span>{isFirst ? 'Start' : isLast ? 'Arrival' : `WP ${idx + 1}`}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Turn-by-Turn Waypoints Horizontal Carousel */}
+          {/* Turn-by-turn steps */}
           <div
             ref={waypointCarouselRef}
             className="flex flex-col gap-3 max-h-[420px] overflow-y-auto p-1 scroll-smooth"
@@ -802,46 +823,43 @@ export function RoutePlanner({
                 <div
                   key={`waypoint-card-${idx}`}
                   onClick={() => onSelectWaypoint && onSelectWaypoint(idx)}
-                  className={`w-full min-w-0 shrink-0 p-3.5 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                  className={`w-full min-w-0 shrink-0 p-4 rounded-xl border-2 transition-colors cursor-pointer flex items-start gap-3 ${
                     isSelected
-                      ? 'bg-gradient-to-b from-purple-50 to-white border-purple-600 shadow-lg ring-2 ring-purple-300 scale-[1.01]'
-                      : 'bg-slate-50/70 border-slate-200 hover:border-purple-300 hover:bg-white'
+                      ? 'bg-purple-50 border-purple-600'
+                      : 'bg-white border-slate-200 hover:border-purple-300'
                   }`}
                 >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`px-2 py-0.5 rounded-md font-black text-[10px] uppercase flex items-center gap-1 ${
-                          isFirst
-                            ? 'bg-emerald-600 text-white'
-                            : isLast
-                            ? 'bg-purple-950 text-amber-300'
-                            : 'bg-purple-700 text-white'
-                        }`}
-                      >
-                        {isFirst ? 'Departure' : isLast ? 'Destination' : `Waypoint ${idx + 1}`}
-                      </span>
+                  <span
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black shrink-0 ${
+                      isFirst
+                        ? 'bg-emerald-600 text-white'
+                        : isLast
+                        ? 'bg-purple-950 text-amber-300'
+                        : 'bg-purple-700 text-white'
+                    }`}
+                  >
+                    {idx + 1}
+                  </span>
 
-                      <span className="text-[10px] font-mono text-slate-400">
-                        GPS: {step.coordinates.lat.toFixed(4)}, {step.coordinates.lng.toFixed(4)}
-                      </span>
+                  <div className="min-w-0 space-y-2">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                        {isFirst ? 'Departure' : isLast ? 'Destination' : `Waypoint ${idx + 1}`}
+                      </div>
+                      <p className="text-sm font-bold text-slate-900 leading-snug">
+                        {step.instruction}
+                      </p>
                     </div>
 
-                    <p className="font-extrabold text-xs text-slate-900 leading-snug">
-                      {step.instruction}
-                    </p>
-                  </div>
-
-                  {/* ADA Feature Tag */}
-                  <div className="pt-1.5 border-t border-slate-200/80 text-[10px] text-purple-950 bg-purple-50/60 p-2 rounded-lg font-medium">
-                    <strong className="block text-purple-900 font-bold mb-0.5">ADA Low-Barrier Detail:</strong>
-                    {step.accessibilityNotes}
+                    <div className="text-xs text-purple-950 bg-purple-50 border border-purple-100 p-2.5 rounded-lg">
+                      <strong className="block text-purple-900 font-bold mb-0.5">ADA Low-Barrier Detail</strong>
+                      {step.accessibilityNotes}
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
-
 
         </div>
       )}

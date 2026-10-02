@@ -1076,6 +1076,7 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
   },
   {
     id: 'corridor-marcus-beca',
+    photoUrl: '/locations/marcus-hall.jpg',
     title: 'Marcus Hall (BECA)',
     subtitle: 'Broadcast studio soundstages & accessible digital media suites',
     category: 'Media & Tech',
@@ -1189,5 +1190,4 @@ export const SFSU_ACCESSIBLE_CORRIDORS: AccessibleCorridorItem[] = [
     ],
   },
 ];
-
 

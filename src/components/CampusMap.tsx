@@ -137,6 +137,10 @@ export function CampusMap({
     step: any;
   } | null>(null);
 
+  useEffect(() => {
+    setSelectedWaypointPopup(null);
+  }, [activeRoute?.id]);
+
   // Live location state: starts with user's current GPS location, or falls back to Student Life Events Center / Annex I
   const [liveLocation, setLiveLocation] = useState<Coordinates | null>(userLocation || null);
   const [hasAcquiredLiveLocation, setHasAcquiredLiveLocation] = useState(Boolean(userLocation));
@@ -853,7 +857,7 @@ export function CampusMap({
 
                 return (
                   <AdvancedMarker
-                    key={`route-waypoint-${idx}`}
+                    key={`${activeRoute.id}-route-waypoint-${idx}`}
                     position={step.coordinates}
                     title={`Waypoint ${idx + 1}: ${step.instruction}`}
                     zIndex={isSelected ? 60 : 35}
@@ -923,9 +927,6 @@ export function CampusMap({
                 <h4 className="font-black text-sm text-purple-950 leading-tight">
                   Waypoint #{selectedWaypointPopup.index + 1}
                 </h4>
-                <span className="text-[10px] text-slate-500 font-mono">
-                  GPS: {selectedWaypointPopup.step.coordinates.lat.toFixed(4)}, {selectedWaypointPopup.step.coordinates.lng.toFixed(4)}
-                </span>
               </div>
             </div>
             <button
